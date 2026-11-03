@@ -1,17 +1,19 @@
-﻿# Part 1 - Acceptance and Continuation
+# ZaK Trading View — Acceptance and Continuation Snapshot
+
+Snapshot updated: 2026-11-03
 
 ## 1. Project Identity
 
 - Project: ZaK Trading View
-- Confirmed absolute root: D:\ZaK Trading View
+- Confirmed absolute root: `D:\ZaK Trading View`
 - Operating system: Windows 10 Home, build 19045
 - Development environment: VS Code and PowerShell
-- Project approach: Brand-new zero-start project
-- Legacy project code, configuration, Git history and database have not been reused.
+- Project approach: brand-new zero-start project
+- Legacy project code, configuration, Git history and database were not reused.
 
 ## 2. Approved Architecture
 
-The user explicitly approved the proposed architecture and PWA-first mobile approach.
+The user approved the proposed architecture and PWA-first mobile approach.
 
 | Layer | Approved direction |
 |---|---|
@@ -23,133 +25,87 @@ The user explicitly approved the proposed architecture and PWA-first mobile appr
 | ORM | SQLAlchemy 2 |
 | Migrations | Alembic |
 | Cache | Redis, deferred |
-| Market Data | Binance public Spot/Futures APIs |
+| Market data | Binance public Spot/Futures APIs |
 | AI | Specialist agents with deterministic validation |
-| Paper Trading | Internal virtual ledger only |
+| Paper trading | Internal virtual ledger only |
 | Testing | Pytest and Playwright |
 | Deployment | Linux production target, deferred |
 
-Architecture approval does not mean that application code or dependencies have been implemented.
+Architecture approval does not mean that every application layer or dependency has been implemented.
 
-## 3. Environment Evidence
+## 3. Part 1 — Architecture Decisions and Zero-Start Blueprint
 
-Reported and verified by PowerShell:
+**Status: COMPLETE — planning and acceptance scope only.**
 
-- Python: 3.13.15
-- Node.js: 24.19.0
-- npm: 11.17.0
-- Git: 2.55.0.windows.3
-- VS Code: 1.144.0
-- PostgreSQL client: 18.6
-- PostgreSQL Windows service: postgresql-x64-18, Stopped
-- PostgreSQL localhost:5432: no response
-- WSL: 2.7.14.0
-- Ubuntu WSL distribution: installed, currently Stopped
-- Docker CLI: not detected
-- Redis CLI: not detected
+Part 1 established the approved architecture, MVP scope, safety contract and unresolved decisions.
 
-## 4. Initial Folder Structure Evidence
+The original acceptance evidence recorded:
+- Confirmed project root and target OS.
+- Reported development-tool version checks.
+- Explicit user approval of architecture and PWA-first approach.
+- Four planning documents reported copied and SHA-256 verified.
+- Initial folder-creation and required-path checks reported by the user.
 
-The user reported the following PowerShell output:
+Part 1 did not include application implementation, database connectivity, package installation, Git initialization, automated application tests or deployment.
 
-- Directories found: 113
-- Files found: 7
-- New files created: 7
-- Existing files preserved: 0
-- Required path checks: 11/11 PASS
+Original Part 1 environment snapshot recorded PostgreSQL service stopped and localhost port 5432 unavailable. This was a historical Part 1 observation; PostgreSQL was subsequently recovered and verified during Part 2. The later recovery does not retroactively expand Part 1's planning-only acceptance.
 
-This confirms the reported checks only, not a complete independent filesystem audit.
+### Part 1 authoritative planning documents
 
-## 5. Part 1 Planning Documents
+- `docs\architecture\ARCHITECTURE_DECISIONS.md`
+- `docs\architecture\MVP_SCOPE.md`
+- `docs\decisions\OPEN_DECISIONS.md`
+- `docs\continuation\PART1_ACCEPTANCE_AND_CONTINUATION.md`
 
-The user reported successful copying and SHA-256 comparison for these four files:
+### Part 1 unresolved decisions
 
-1. D:\ZaK Trading View\docs\architecture\ARCHITECTURE_DECISIONS.md
-2. D:\ZaK Trading View\docs\architecture\MVP_SCOPE.md
-3. D:\ZaK Trading View\docs\decisions\OPEN_DECISIONS.md
-4. D:\ZaK Trading View\docs\continuation\PART1_ACCEPTANCE_AND_CONTINUATION.md
-
-The reported PowerShell output showed PASS for all four paths.
-
-## 6. Trading Safety Contract
-
-- No real exchange order placement, modification or cancellation.
-- No real exchange trading credential flows.
-- Public market data only.
-- Actionable signals require validated and sufficiently fresh evidence.
-- Missing, stale or contradictory data must block actionable outputs.
-- Spot and Futures paper portfolios remain separate.
-- Each portfolio starts with 1,000 USDT virtual funds.
-- Portfolio resets require explicit confirmation and preserve historical sessions.
-- Automated trading is restricted to the internal virtual ledger.
-
-## 7. Open Decisions
-
-The following decisions remain for their relevant development parts:
-
-- Binance market coverage and data freshness thresholds.
-- Reconnection, backfill and gap-handling policy.
-- Chart library selection and license review.
-- AI provider, model, privacy and cost controls.
-- Indicator parameters and evaluation thresholds.
+The following remain open for their relevant future Parts and are not silently approved:
+- Binance market coverage, geographic/API availability and fallback behavior.
+- Freshness thresholds, reconnection and historical backfill policies.
+- Chart library selection and licensing.
+- AI provider/model, privacy, retention and cost controls.
+- Indicator formulas and actionable-signal thresholds.
 - Futures paper-trading margin, leverage, funding, fees and liquidation rules.
 - Spot SHORT signal semantics.
-- Subscription quota counting and timezone rules.
+- Subscription quota and timezone rules.
 - Trial eligibility and abuse controls.
 - Authentication and notification providers.
-- PostgreSQL service startup and credentials.
-- Redis and background queue implementation.
+- Database credentials, Redis and background queue implementation.
 - Exact dependency versions and deployment configuration.
 
-These are unresolved decisions, not assumed approvals.
+## 4. Part 2 — New Repository and Development Environment
 
-## 8. Part 1 Acceptance Audit
+**Status: COMPLETE — documented Part 2 acceptance scope.**
 
-| Acceptance criterion | Result | Evidence |
-|---|---|---|
-| Project root confirmed | PASS | Get-Location output |
-| Target OS identified | PASS | Get-ComputerInfo output |
-| Development tools identified | PASS | Version command outputs |
-| Architecture approved | PASS | Explicit user approval |
-| PWA-first approach approved | PASS | Explicit user approval |
-| MVP scope documented | PASS | MVP_SCOPE.md copy/hash report |
-| Open decisions documented | PASS | OPEN_DECISIONS.md copy/hash report |
-| Architecture documented | PASS | ARCHITECTURE_DECISIONS.md copy/hash report |
-| Continuation documentation | PASS | Local copy/hash report, followed by this reconciliation |
-| Zero-start boundary maintained | PASS | No legacy implementation assumed |
-| Application implementation | NOT IN SCOPE | Part 1 is planning only |
-| PostgreSQL connectivity | NOT VERIFIED | Service stopped; no response on port 5432 |
+Part 2 acceptance report: `docs\reports\PART2_REPOSITORY_AND_ENVIRONMENT.md`.
 
-## 9. Final Part 1 Verdict
+Previously verified environment evidence included:
+- Python 3.13.15.
+- Node.js 24.19.0.
+- npm 11.17.0.
+- Git 2.55.0.windows.3.
+- VS Code 1.144.0.
+- PostgreSQL client 18.6.
+- PostgreSQL 18 Windows service `postgresql-x64-18` recovered to Running with Automatic startup.
+- PostgreSQL accepted local connections and authenticated SQL execution was successful at the recorded verification.
 
-COMPLETE - Architecture and planning scope only.
+Documented Part 2 limitations remain:
+- A complete backup/restore or disaster-recovery drill was not verified.
+- Windows reboot and automatic-startup behavior was not independently tested as a full recovery drill.
+- Application-specific database roles/permissions and Alembic migrations were not verified in that Part.
+- Comprehensive secret scanning and production-grade disaster-recovery/security testing were not completed.
 
-Evidence consists of:
-- Confirmed project root.
-- Reported folder creation and required-path verification.
-- Reported development environment checks.
-- Explicit user approval of architecture and PWA approach.
-- Four planning documents reported copied and SHA-256 verified.
-- Acceptance criteria documented above.
+## 5. Part 3 — Signal-Only Safety Boundary
 
-This verdict does NOT mean application functionality, database connectivity, Git initialization, package installation, automated application tests or deployment are complete.
+**Status: ACCEPTED WITH DOCUMENTED SCOPE LIMITATIONS.**
 
-## 10. Continuation State Snapshot
+Part 3 implementation commit:
+- `0be8aee57f35054c1e9d4e254c7c344885ae87eb`
+- Message: `feat: establish signal-only security and egress controls`
 
-Snapshot last reconciled: 2026-11-03
+The Part 3 commit is present in the repository history. The current `main` remote tip is a later commit that includes the Part 3 commit in its history. The historical statement that Part 3 had no commit or push is superseded and must not be reused.
 
-- Confirmed absolute project root: `D:\ZaK Trading View`
-- Current Git branch: `main`.
-- Initial repository commit: `b3e49d4` (`chore: initialize ZaK Trading View repository`).
-- Remote tracking: `origin/main`; the initial commit was pushed successfully.
-- Part 1 — Architecture Decisions & Zero-Start Blueprint: COMPLETE (planning and acceptance scope only).
-- Part 2 — New Repository & Development Environment: COMPLETE.
-- Part 3 — Signal-Only Safety Boundary: ACCEPTED WITH DOCUMENTED SCOPE LIMITATIONS.
-- Parts 4–22: PENDING; do not begin without explicit user approval.
-
-### Part 3 implementation and evidence
-
-Security implementation files currently reported locally:
+### Part 3 implementation files
 
 - `apps\api\app\security\__init__.py`
 - `apps\api\app\security\execution_boundary.py`
@@ -159,65 +115,112 @@ Security implementation files currently reported locally:
 - `apps\api\app\security\websocket_messages.py`
 - `apps\api\app\security\public_websocket.py`
 
-Test and dependency files:
+### Part 3 tests and dependencies
 
-- `apps\api\tests\`
+- `apps\api\tests\test_execution_boundary.py`
+- `apps\api\tests\test_egress_policy.py`
+- `apps\api\tests\test_egress_policy_headers.py`
+- `apps\api\tests\test_public_http.py`
+- `apps\api\tests\test_public_http_configuration.py`
+- `apps\api\tests\test_public_websocket.py`
+- `apps\api\tests\test_websocket_egress.py`
+- `apps\api\tests\test_websocket_messages.py`
 - `apps\api\requirements.txt`
 - `apps\api\requirements-dev.txt`
 
-Part 3 reports:
+### Part 3 reports
 
 - `docs\reports\PART3_SIGNAL_ONLY_SAFETY_BOUNDARY.md`
 - `docs\reports\PART3_REAL_ORDER_ISOLATION_READONLY_AUDIT.txt`
 - `docs\reports\PART3_WINDOWS_EGRESS_BASELINE.txt`
 - `docs\reports\PART3_FINAL_ACCEPTANCE.md`
-
-Additional Part 1 reconciliation evidence:
-
 - `docs\reports\PART1_RECONCILIATION_READONLY_AUDIT.txt`
 
 ### Part 3 fixed five-phase acceptance workflow
 
-1. Real-order execution isolation audit — COMPLETE (static source scope; documented limitation).
-2. Windows network egress security — COMPLETE (application-level policy and transport scope; operating-system/process-level outbound isolation deferred).
-3. Part 1 acceptance reconciliation — DOCUMENT UPDATE COMPLETE.
-4. Full regression and security verification — COMPLETE within tested scope.
-5. Final Part 3 acceptance documentation — final report verified; supporting documentation reconciliation must remain consistent.
+1. Real-order execution isolation audit — **COMPLETE, static source-audit scope only.**
+2. Windows network egress security — **COMPLETE, application-level policy and transport scope only; OS/process-level outbound isolation deferred.**
+3. Part 1 acceptance reconciliation — **COMPLETE, documentation reconciled in this snapshot and the Part 3 final report.**
+4. Full regression and security verification — **COMPLETE within the tested scope described below.**
+5. Final Part 3 acceptance documentation — **COMPLETE after this report and continuation snapshot are verified and committed.**
 
-Reported verification:
+### Part 3 fresh verification evidence — 2026-11-03
 
-- Pytest: 67 passed.
-- Pytest subtests: 117 passed.
-- `python -m compileall -q app tests`: passed.
-- `python -m pip check`: no broken requirements found.
-- `git diff --check`: no whitespace errors; LF/CRLF conversion warnings only.
+The user supplied fresh local PowerShell output:
 
-Final acceptance report SHA-256:
+| Verification | Observed result |
+|---|---|
+| Python version | 3.13.15 |
+| Full pytest suite | 67 passed |
+| Pytest subtests | 117 passed |
+| `python -m compileall -q app tests` | Exit code 0 |
+| `python -m pip check` | No broken requirements found; exit code 0 |
+| `git diff --check` before documentation update | Exit code 0 |
+| Additional HTTP adversarial URL probes | 6 of 6 rejected |
+| Additional WebSocket adversarial URL probes | 5 of 5 rejected |
 
-`264C0D387DB0CF44509B6CE2EE685FEFFC290242E168462B955334BB58FA44A0`
+The 11 additional adversarial cases tested trailing-dot hosts, empty user information, malformed port syntax, encoded credential query names, duplicate signature parameters, backslash authority ambiguity and duplicate WebSocket stream parameters. All 11 were rejected; no unexpected exception was reported.
 
-### Accepted limitations
+### Part 3 source and test audit findings
 
-- The execution-mode helper is not evidence of complete application request-flow integration.
-- Static pattern scanning does not prove runtime isolation.
-- WebSocket incoming event-schema validation belongs to later ingestion work.
-- Public market-data ingestion and virtual paper-ledger functionality belong to their respective later Parts.
-- Windows process-level outbound isolation is deferred; global firewall policy was not changed.
-- Production certification and Linux deployment are not included in Part 3 acceptance.
+- No known order mutation terms were found in the audited application source by the supplied scan.
+- No exchange client import or constructor was found by the supplied scan.
+- `websockets.asyncio.client.connect` is the actual public WebSocket transport import.
+- The `api_key` scan match is a prohibited query-parameter name in the HTTP egress policy, not evidence of an actual credential value or credential flow.
+- The HTTP transport uses `urllib.request`; the WebSocket transport uses the `websockets` client.
+- Existing tests verify validation before HTTP transport creation and before WebSocket connection attempts.
+- Existing tests cover allowed/denied HTTP hosts and paths, methods, headers, query parameters, malformed URLs, redirect rejection, proxy configuration, TLS configuration, timeouts, response-size limits, WebSocket hosts/paths/streams, outbound subscription messages and execution-mode helper behavior.
 
-### Git state
+### Part 3 accepted limitations
 
-At the last user-provided status check:
+- The execution-mode helper is not evidence of complete application request-flow integration. `apps\api\app\main.py` remains a placeholder in the inspected scope.
+- Static pattern scanning does not prove runtime isolation against all dynamic or indirect execution paths.
+- Incoming WebSocket messages are delegated as raw messages; full incoming event-schema validation belongs to later market-data ingestion work.
+- Live market-data ingestion, routing and virtual paper-ledger functionality belong to their respective future Parts.
+- Windows Firewall profiles were enabled, but current inspection showed `DefaultOutboundAction = Allow` for Domain, Private and Public profiles, with no enabled outbound block rules found. No Python-specific outbound restriction was established.
+- Windows process/domain-level outbound enforcement, production network isolation and production penetration testing are not included in Part 3 acceptance.
+- Future frontend/configuration security, application integration and end-to-end testing remain future work.
 
-- Branch `main` tracking `origin/main`.
-- Modified tracked files:
-  - `docs/architecture/ARCHITECTURE_DECISIONS.md`
-  - `docs/continuation/PART1_ACCEPTANCE_AND_CONTINUATION.md`
-- Untracked Part 3 implementation, test, dependency and report files were present.
-- No Part 3 commit or push had been performed.
+### Part 3 acceptance meaning
 
-This is a historical status snapshot from the last reported command output. Re-run `git status` before any commit or push decision.
+Part 3 is accepted only within its documented application-level signal-only safety and public market-data egress policy/transport scope. This is not production certification, complete operating-system network isolation or proof that future application request flows are already integrated.
 
-Part 1 remains accepted for its original planning-only scope. This continuation snapshot does not retroactively claim that application implementation, database connectivity, package installation, deployment or later project Parts were completed in Part 1.
+## 6. Current Git and Repository State
 
-**Next action:** Verify the updated Part 3 safety-boundary document and this continuation snapshot against `PART3_FINAL_ACCEPTANCE.md`. Keep the fixed five-phase sequence. Do not begin Part 4 until the user explicitly approves.
+Fresh user-provided verification on 2026-11-03, before this documentation update:
+
+- Branch: `main`.
+- Local HEAD: `a3fc738a08476ad99d30018c2285e4d6fac24e4d`.
+- Local `origin/main`: `a3fc738a08476ad99d30018c2285e4d6fac24e4d`.
+- `git ls-remote origin refs/heads/main`: `a3fc738a08476ad99d30018c2285e4d6fac24e4d`.
+- Working tree was clean.
+- Latest commit message: `docs: finalize Part 2 repository and environment acceptance`.
+- Part 3 implementation commit `0be8aee57f35054c1e9d4e254c7c344885ae87eb` is in the previously verified history.
+
+The documentation update described by this snapshot is a new local change and must not be represented as committed or pushed until the subsequent Git commands verify that result.
+
+## 7. Part 3 Final Acceptance Verdict
+
+**PART 3: ACCEPTED WITH DOCUMENTED SCOPE LIMITATIONS.**
+
+Acceptance evidence consists of the source/test audit, fresh regression and compile/dependency checks, 11 additional rejected adversarial URL probes, the Windows Firewall baseline inspection and the explicit limitations recorded above.
+
+No real exchange order placement, modification, cancellation, authenticated trading credential flow or live trading integration is authorized or introduced by Part 3.
+
+## 8. Future Parts and Continuation Rules
+
+- Part 1 — COMPLETE, planning and acceptance scope only.
+- Part 2 — COMPLETE, documented repository/environment scope.
+- Part 3 — ACCEPTED WITH DOCUMENTED SCOPE LIMITATIONS.
+- Part 4 onward — PENDING. Do not begin any later Part without explicit user approval.
+
+Preserve the established workflow:
+- No guessing; inspect before modifying.
+- Preserve existing files and uncommitted work.
+- Do not install dependencies or change firewall policy without explicit approval.
+- Do not claim a test passed without actual output.
+- Do not use destructive Git operations or force push without explicit authorization.
+- Complete, test, audit and document one Part before requesting approval for the next.
+- After an approved Part is complete, commit and push only reviewed, intended files; verify local/remote commit hashes and working-tree status.
+
+**Next action:** Complete final documentation diff review, rerun the approved verification suite, then commit and push the two reviewed Part 3 documentation files. Stop after Part 3 acceptance; do not begin Part 4 without explicit user approval.
