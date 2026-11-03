@@ -136,22 +136,88 @@ This verdict does NOT mean application functionality, database connectivity, Git
 
 ## 10. Continuation State Snapshot
 
-- Confirmed absolute project root: D:\ZaK Trading View
-- Current branch/commit: UNKNOWN; Git initialization not verified.
-- Part 1 - Architecture Decisions & Zero-Start Blueprint: COMPLETE (planning scope only).
-- Part 2 - New Repository & Development Environment: NOT STARTED.
-- Parts 3-22: NOT STARTED.
-- Part 1 planning files:
-  - docs\architecture\ARCHITECTURE_DECISIONS.md
-  - docs\architecture\MVP_SCOPE.md
-  - docs\decisions\OPEN_DECISIONS.md
-  - docs\continuation\PART1_ACCEPTANCE_AND_CONTINUATION.md
-- Initial folder creation evidence: 113 directories, 7 files, 11 required checks passed, as reported by the user.
-- Actual application tests: None; not required for this planning-only part.
-- Known infrastructure limitations: PostgreSQL service stopped; Docker and Redis CLI not detected.
-- Remaining policy decisions: recorded in docs\decisions\OPEN_DECISIONS.md.
-- Current next action: Wait for explicit user approval and request to begin Part 2.
+Snapshot last reconciled: 2026-11-03
 
-Next Part: Part 2 - New Repository & Development Environment
+- Confirmed absolute project root: `D:\ZaK Trading View`
+- Current Git branch: `main`.
+- Initial repository commit: `b3e49d4` (`chore: initialize ZaK Trading View repository`).
+- Remote tracking: `origin/main`; the initial commit was pushed successfully.
+- Part 1 — Architecture Decisions & Zero-Start Blueprint: COMPLETE (planning and acceptance scope only).
+- Part 2 — New Repository & Development Environment: COMPLETE.
+- Part 3 — Signal-Only Safety Boundary: ACCEPTED WITH DOCUMENTED SCOPE LIMITATIONS.
+- Parts 4–22: PENDING; do not begin without explicit user approval.
 
-Do not begin Part 2 until the user explicitly approves Part 1 and asks to proceed.
+### Part 3 implementation and evidence
+
+Security implementation files currently reported locally:
+
+- `apps\api\app\security\__init__.py`
+- `apps\api\app\security\execution_boundary.py`
+- `apps\api\app\security\egress_policy.py`
+- `apps\api\app\security\public_http.py`
+- `apps\api\app\security\websocket_egress.py`
+- `apps\api\app\security\websocket_messages.py`
+- `apps\api\app\security\public_websocket.py`
+
+Test and dependency files:
+
+- `apps\api\tests\`
+- `apps\api\requirements.txt`
+- `apps\api\requirements-dev.txt`
+
+Part 3 reports:
+
+- `docs\reports\PART3_SIGNAL_ONLY_SAFETY_BOUNDARY.md`
+- `docs\reports\PART3_REAL_ORDER_ISOLATION_READONLY_AUDIT.txt`
+- `docs\reports\PART3_WINDOWS_EGRESS_BASELINE.txt`
+- `docs\reports\PART3_FINAL_ACCEPTANCE.md`
+
+Additional Part 1 reconciliation evidence:
+
+- `docs\reports\PART1_RECONCILIATION_READONLY_AUDIT.txt`
+
+### Part 3 fixed five-phase acceptance workflow
+
+1. Real-order execution isolation audit — COMPLETE (static source scope; documented limitation).
+2. Windows network egress security — COMPLETE (application-level policy and transport scope; operating-system/process-level outbound isolation deferred).
+3. Part 1 acceptance reconciliation — DOCUMENT UPDATE COMPLETE.
+4. Full regression and security verification — COMPLETE within tested scope.
+5. Final Part 3 acceptance documentation — final report verified; supporting documentation reconciliation must remain consistent.
+
+Reported verification:
+
+- Pytest: 67 passed.
+- Pytest subtests: 117 passed.
+- `python -m compileall -q app tests`: passed.
+- `python -m pip check`: no broken requirements found.
+- `git diff --check`: no whitespace errors; LF/CRLF conversion warnings only.
+
+Final acceptance report SHA-256:
+
+`264C0D387DB0CF44509B6CE2EE685FEFFC290242E168462B955334BB58FA44A0`
+
+### Accepted limitations
+
+- The execution-mode helper is not evidence of complete application request-flow integration.
+- Static pattern scanning does not prove runtime isolation.
+- WebSocket incoming event-schema validation belongs to later ingestion work.
+- Public market-data ingestion and virtual paper-ledger functionality belong to their respective later Parts.
+- Windows process-level outbound isolation is deferred; global firewall policy was not changed.
+- Production certification and Linux deployment are not included in Part 3 acceptance.
+
+### Git state
+
+At the last user-provided status check:
+
+- Branch `main` tracking `origin/main`.
+- Modified tracked files:
+  - `docs/architecture/ARCHITECTURE_DECISIONS.md`
+  - `docs/continuation/PART1_ACCEPTANCE_AND_CONTINUATION.md`
+- Untracked Part 3 implementation, test, dependency and report files were present.
+- No Part 3 commit or push had been performed.
+
+This is a historical status snapshot from the last reported command output. Re-run `git status` before any commit or push decision.
+
+Part 1 remains accepted for its original planning-only scope. This continuation snapshot does not retroactively claim that application implementation, database connectivity, package installation, deployment or later project Parts were completed in Part 1.
+
+**Next action:** Verify the updated Part 3 safety-boundary document and this continuation snapshot against `PART3_FINAL_ACCEPTANCE.md`. Keep the fixed five-phase sequence. Do not begin Part 4 until the user explicitly approves.

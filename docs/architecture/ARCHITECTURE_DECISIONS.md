@@ -1,5 +1,5 @@
 # ZaK Trading View — Architecture Decisions (Part 1)
-Status: Approved direction; implementation not started.
+Status: Approved direction; implementation is in progress under subsequent project parts. This document records approved architecture decisions, not current implementation completeness.
 
 ## ADR-001: Modular monolith
 Next.js/TypeScript frontend, Python/FastAPI modular backend, separately executable background worker. Module boundaries are explicit; separate network microservices are not required initially.

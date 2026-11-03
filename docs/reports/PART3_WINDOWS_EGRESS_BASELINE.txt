@@ -1,0 +1,237 @@
+ZaK Trading View - Windows Network Egress Baseline
+Date: 2026-11-03 09:58:52
+Computer: DESKTOP-VMLOBOU
+User: zakal
+PowerShell: 5.1.19041.6456
+Administrator: True
+READ-ONLY AUDIT - NO FIREWALL CHANGES
+
+========================================
+WINDOWS FIREWALL SERVICE
+========================================
+
+Name    Status StartType
+----    ------ ---------
+MpsSvc Running Automatic
+
+========================================
+FIREWALL PROFILE CONFIGURATION
+========================================
+
+
+Name                    : Domain
+Enabled                 : True
+DefaultInboundAction    : Block
+DefaultOutboundAction   : Allow
+AllowInboundRules       : True
+AllowLocalFirewallRules : True
+NotifyOnListen          : True
+
+Name                    : Private
+Enabled                 : True
+DefaultInboundAction    : Block
+DefaultOutboundAction   : Allow
+AllowInboundRules       : True
+AllowLocalFirewallRules : True
+NotifyOnListen          : True
+
+Name                    : Public
+Enabled                 : True
+DefaultInboundAction    : Block
+DefaultOutboundAction   : Allow
+AllowInboundRules       : True
+AllowLocalFirewallRules : True
+NotifyOnListen          : True
+
+========================================
+ACTIVE NETWORK CONNECTION PROFILE
+========================================
+
+
+Name             : Zahoor 4G
+InterfaceAlias   : WiFi
+NetworkCategory  : Private
+IPv4Connectivity : Internet
+IPv6Connectivity : NoTraffic
+
+========================================
+ENABLED OUTBOUND BLOCK RULES
+========================================
+Get-NetFirewallRule : No matching MSFT_NetFirewallRule objects found by CIM query for instances of the root/standardcimv2/MSFT_NetFirewallRule class on the  CIM server: SELECT * FROM MSFT_NetFirewallRule  WHERE ((Enabled = 1)) AND
+((Direction = 2)) AND ((Action = 4)). Verify query parameters and retry.
+At line:77 char:5
++     Get-NetFirewallRule -PolicyStore ActiveStore `
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (MSFT_NetFirewallRule:String) [Get-NetFirewallRule], CimJobException
+    + FullyQualifiedErrorId : CmdletizationQuery_NotFound,Get-NetFirewallRule
+
+========================================
+ENABLED OUTBOUND ALLOW RULES (FIRST 100)
+========================================
+
+DisplayName                                                                 Name                                                                          Profile PolicyStoreSourceType
+-----------                                                                 ----                                                                          ------- ---------------------
+WFD Driver-only (TCP-Out)                                                   WiFiDirect-KM-Driver-Out-TCP                                                      Any                 Local
+WFD Driver-only (UDP-Out)                                                   WiFiDirect-KM-Driver-Out-UDP                                                      Any                 Local
+Connected Devices Platform (UDP-Out)                                        CDPSvc-Out-UDP                                                        Domain, Private                 Local
+Connected Devices Platform (TCP-Out)                                        CDPSvc-Out-TCP                                                        Domain, Private                 Local
+Connected Devices Platform - WiFi Direct Transport (TCP-Out)                CDPSvc-WFD-Out-TCP                                                             Public                 Local
+Core Networking - Packet Too Big (ICMPv6-Out)                               CoreNet-ICMP6-PTB-Out                                                             Any                 Local
+Core Networking - Time Exceeded (ICMPv6-Out)                                CoreNet-ICMP6-TE-Out                                                              Any                 Local
+Core Networking - Parameter Problem (ICMPv6-Out)                            CoreNet-ICMP6-PP-Out                                                              Any                 Local
+Core Networking - Neighbour Discovery Solicitation (ICMPv6-Out)             CoreNet-ICMP6-NDS-Out                                                             Any                 Local
+Core Networking - Neighbour Discovery Advertisement (ICMPv6-Out)            CoreNet-ICMP6-NDA-Out                                                             Any                 Local
+Core Networking - Router Advertisement (ICMPv6-Out)                         CoreNet-ICMP6-RA-Out                                                              Any                 Local
+Core Networking - Router Solicitation (ICMPv6-Out)                          CoreNet-ICMP6-RS-Out                                                              Any                 Local
+Core Networking - Multicast Listener Query (ICMPv6-Out)                     CoreNet-ICMP6-LQ-Out                                                              Any                 Local
+Core Networking - Multicast Listener Report (ICMPv6-Out)                    CoreNet-ICMP6-LR-Out                                                              Any                 Local
+Core Networking - Multicast Listener Report v2 (ICMPv6-Out)                 CoreNet-ICMP6-LR2-Out                                                             Any                 Local
+Core Networking - Multicast Listener Done (ICMPv6-Out)                      CoreNet-ICMP6-LD-Out                                                              Any                 Local
+Core Networking - Internet Group Management Protocol (IGMP-Out)             CoreNet-IGMP-Out                                                                  Any                 Local
+Core Networking - Dynamic Host Configuration Protocol (DHCP-Out)            CoreNet-DHCP-Out                                                                  Any                 Local
+Core Networking - Dynamic Host Configuration Protocol for IPv6 (DHCPV6-Out) CoreNet-DHCPV6-Out                                                                Any                 Local
+Core Networking - IPHTTPS (TCP-Out)                                         CoreNet-IPHTTPS-Out                                                               Any                 Local
+Core Networking - IPv6 (IPv6-Out)                                           CoreNet-IPv6-Out                                                                  Any                 Local
+Core Networking - Group Policy (NP-Out)                                     CoreNet-GP-NP-Out-TCP                                                          Domain                 Local
+Core Networking - Group Policy (TCP-Out)                                    CoreNet-GP-Out-TCP                                                             Domain                 Local
+Core Networking - DNS (UDP-Out)                                             CoreNet-DNS-Out-UDP                                                               Any                 Local
+Core Networking - Group Policy (LSASS-Out)                                  CoreNet-GP-LSASS-Out-TCP                                                       Domain                 Local
+Windows Device Management Sync Client (TCP out)                             Microsoft-Windows-DeviceManagement-OmaDmClient-TCP-Out                            Any                 Local
+Windows Device Management Device Enroller (TCP out)                         Microsoft-Windows-DeviceManagement-deviceenroller-TCP-Out                         Any                 Local
+Proximity sharing over TCP (TCP sharing-Out)                                ProximityUxHost-Sharing-Out-TCP-NoScope                                           Any                 Local
+Network Discovery (SSDP-Out)                                                NETDIS-SSDPSrv-Out-UDP-Active                                                 Private                 Local
+Network Discovery (UPnP-Out)                                                NETDIS-UPnPHost-Out-TCP-Active                                                Private                 Local
+Network Discovery (UPnPHost-Out)                                            NETDIS-UPnP-Out-TCP-Active                                                    Private                 Local
+Network Discovery (NB-Name-Out)                                             NETDIS-NB_Name-Out-UDP-Active                                                 Private                 Local
+Network Discovery (NB-Datagram-Out)                                         NETDIS-NB_Datagram-Out-UDP-Active                                             Private                 Local
+Network Discovery (WSD-Out)                                                 NETDIS-FDPHOST-Out-UDP-Active                                                 Private                 Local
+Network Discovery (LLMNR-UDP-Out)                                           NETDIS-LLMNR-Out-UDP-Active                                                   Private                 Local
+Network Discovery (Pub WSD-Out)                                             NETDIS-FDRESPUB-WSD-Out-UDP-Active                                            Private                 Local
+Network Discovery (WSD EventsSecure-Out)                                    NETDIS-WSDEVNTS-Out-TCP-Active                                                Private                 Local
+Network Discovery (WSD Events-Out)                                          NETDIS-WSDEVNT-Out-TCP-Active                                                 Private                 Local
+mDNS (UDP-Out)                                                              MDNS-Out-UDP-Private-Active                                                   Private                 Local
+mDNS (UDP-Out)                                                              MDNS-Out-UDP-Domain-Active                                                     Domain                 Local
+mDNS (UDP-Out)                                                              MDNS-Out-UDP-Public-Active                                                     Public                 Local
+Windows Device Management Certificate Installer (TCP out)                   Microsoft-Windows-DeviceManagement-CertificateInstall-TCP-Out                     Any                 Local
+Wi-Fi Direct Network Discovery (Out)                                        WFDPRINT-DAFWSD-Out-Active                                                     Public                 Local
+Wi-Fi Direct Spooler Use (Out)                                              WFDPRINT-SPOOL-Out-Active                                                      Public                 Local
+Wi-Fi Direct Scan Service Use (Out)                                         WFDPRINT-SCAN-Out-Active                                                       Public                 Local
+Wireless Display (TCP-Out)                                                  WirelessDisplay-Out-TCP                                                           Any                 Local
+Wireless Display (UDP-Out)                                                  WirelessDisplay-Out-UDP                                                           Any                 Local
+Windows Device Management Enrolment Service (TCP out)                       Microsoft-Windows-Enrollment-WinRT-TCP-Out                                        Any                 Local
+Recommended Troubleshooting Client (HTTP/HTTPS Out)                         Microsoft-Windows-Troubleshooting-HTTP-HTTPS-Out                                  Any                 Local
+Remote Assistance (RA Server TCP-Out)                                       RemoteAssistance-RAServer-Out-TCP-NoScope-Active                               Domain                 Local
+Remote Assistance (TCP-Out)                                                 RemoteAssistance-Out-TCP-Active                                       Domain, Private                 Local
+Remote Assistance (SSDP UDP-Out)                                            RemoteAssistance-SSDPSrv-Out-UDP-Active                               Domain, Private                 Local
+Remote Assistance (SSDP TCP-Out)                                            RemoteAssistance-SSDPSrv-Out-TCP-Active                               Domain, Private                 Local
+Remote Assistance (PNRP-Out)                                                RemoteAssistance-PnrpSvc-UDP-OUT-Active                               Domain, Private                 Local
+@FirewallAPI.dll,-80204                                                     NVS-FrameServer-Out-TCP-NoScope                                                   Any                 Local
+Connected User Experiences and Telemetry                                    Microsoft-Windows-Unified-Telemetry-Client                                        Any                 Local
+WFD ASP Coordination Protocol (UDP-Out)                                     Microsoft-Windows-WLANSvc-ASP-CP-Out                                              Any                 Local
+Cast to Device streaming server (RTP-Streaming-Out)                         PlayTo-Out-UDP-NoScope                                                         Domain                 Local
+Cast to Device streaming server (RTP-Streaming-Out)                         PlayTo-Out-UDP-LocalSubnetScope                                               Private                 Local
+Cast to Device streaming server (RTP-Streaming-Out)                         PlayTo-Out-UDP-PlayToScope                                                     Public                 Local
+Cast to Device functionality (qWave-UDP-Out)                                PlayTo-QWave-Out-UDP-PlayToScope                                      Private, Public                 Local
+Cast to Device functionality (qWave-TCP-Out)                                PlayTo-QWave-Out-TCP-PlayToScope                                      Private, Public                 Local
+Microsoft Photos                                                            {A24E5128-397A-4FB5-B4E2-E6C4AF4F8A54}                        Domain, Private, Public                 Local
+Microsoft Store                                                             {D352E684-BDC0-46E1-9C16-0D6DD6E123D3}                        Domain, Private, Public                 Local
+Your Phone                                                                  {6B67C646-CCA7-45A0-9BE2-81E3943932C8}                        Domain, Private, Public                 Local
+Xbox Game Bar                                                               {2B0C2C43-B03D-4781-AA74-636748C9C19C}                        Domain, Private, Public                 Local
+Microsoft Pay                                                               {0E4FD856-15C3-41B1-9470-6A4641D9FBBE}                        Domain, Private, Public                 Local
+Store Experience Host                                                       {7AD22C13-8ABE-46DA-9266-168E96A1F4CF}                        Domain, Private, Public                 Local
+Paint 3D                                                                    {9B2F2735-B63C-4B0F-B0A7-DBDD64BA13DA}                        Domain, Private, Public                 Local
+3D Viewer                                                                   {BC88F906-8826-415B-92A7-916A79656B4D}                        Domain, Private, Public                 Local
+WhatsApp                                                                    {C2527BD2-E5B8-471E-852E-2EF134EA9426}                        Domain, Private, Public                 Local
+Claude                                                                      {52FA3620-ED16-4114-9B9B-E3E82C47279B}                                            Any                 Local
+Claude                                                                      {9C73F556-05B0-4BE8-B1A0-840F541EC9DE}                                            Any                 Local
+Claude                                                                      {340B06E4-01F2-4250-B996-E7D4AAE56DE5}                                            Any                 Local
+Claude                                                                      {8BF6A027-5032-43BF-AE1E-4B3601BA2EE7}                                            Any                 Local
+Claude                                                                      {8C109C33-21D5-412C-AB78-A77736E9142F}                                            Any                 Local
+Claude                                                                      {42A72A7D-4F03-479E-971C-BC742EE2D672}                                            Any                 Local
+Claude                                                                      {164F89F9-6D97-4E2D-A559-194D9C75BCB0}                                            Any                 Local
+Claude                                                                      {131032E6-5D27-44DD-866D-EBA83FDD353C}                                            Any                 Local
+Windows Subsystem for Linux                                                 {75D3DC3E-2DB1-4785-8C0A-604D3BCA9075}                        Domain, Private, Public                 Local
+Claude                                                                      {B7AB8171-556D-4502-89CE-8995897EE90F}                                            Any                 Local
+Claude                                                                      {381CD425-D92E-40A3-AD8C-160C1D83BABA}                                            Any                 Local
+ms-resource:ProductPkgDisplayName                                           {CFDEEB79-7178-4FB3-B76A-CE42E5F00ECA}                                         Public                 Local
+ms-resource:ProductPkgDisplayName                                           {A4D2441C-05F4-43F3-B63D-B2DB325F83A4}                                        Private                 Local
+ms-resource:ProductPkgDisplayName                                           {C61CD98A-6BF5-4457-BD7A-E1F24891C39A}                                         Public                 Local
+ms-resource:ProductPkgDisplayName                                           {FE4E2D9D-3E6B-4B86-B5AE-ECC1B661AAAC}                                        Private                 Local
+Your account                                                                {6B82FA2D-E8B7-4839-8CE5-930051689051}                        Domain, Private, Public                 Local
+Workplace or school account                                                 {EDDB1DA7-DC7E-461C-9641-21535EF0B1AD}                        Domain, Private, Public                 Local
+Captive Portal Flow                                                         {82A70523-4BE9-43BB-811F-E13A9251C558}                        Domain, Private, Public                 Local
+Start                                                                       {BC019C65-B70F-490B-B107-11E0D213B7CE}                        Domain, Private, Public                 Local
+Windows Shell Experience                                                    {DD00812B-0BD9-4C43-AB6D-7ACC1C8D0456}                        Domain, Private, Public                 Local
+Windows Search                                                              {E99161E5-CA89-41A8-848F-AFE73C58DD83}                        Domain, Private, Public                 Local
+Microsoft content                                                           {D079D40B-BEB4-4565-AB68-B0DC21D38231}                        Domain, Private, Public                 Local
+Windows Feature Experience Pack                                             {D6A61E85-824C-4617-BE1C-0DBB8D07CF31}                        Domain, Private, Public                 Local
+NcsiUwpApp                                                                  {32FBA314-8AB7-4D5F-88BE-8641DF213266}                        Domain, Private, Public                 Local
+Xbox Game UI                                                                {9A6A2697-A5BA-4F6D-B365-4399874F89BA}                        Domain, Private, Public                 Local
+Windows Security                                                            {616FFD4F-68ED-47F4-89EC-FF543A618D47}                        Domain, Private, Public                 Local
+Windows Shell Experience                                                    {5A24623A-F329-4993-A09F-E65D2C15CBFD}                        Domain, Private, Public                 Local
+Microsoft family features                                                   {0593E9E7-245F-489A-BC39-C736121597BB}                        Domain, Private, Public                 Local
+Narrator                                                                    {9F69595A-9D8D-4C8D-BC65-AE4AC6C73048}                        Domain, Private, Public                 Local
+
+========================================
+WINHTTP PROXY CONFIGURATION
+========================================
+
+Current WinHTTP proxy settings:
+
+    Direct access (no proxy server).
+
+========================================
+ENVIRONMENT PROXY VARIABLE NAMES (VALUES HIDDEN)
+========================================
+(No output)
+
+========================================
+DEFAULT ROUTES
+========================================
+
+DestinationPrefix NextHop     InterfaceAlias RouteMetric
+----------------- -------     -------------- -----------
+0.0.0.0/0         192.168.1.1 WiFi                     0
+
+========================================
+DNS CLIENT CONFIGURATION
+========================================
+
+InterfaceAlias               AddressFamily ServerAddresses
+--------------               ------------- ---------------
+Ethernet                                 2 {}
+Ethernet                                23 {}
+Local Area Connection* 1                 2 {}
+Local Area Connection* 1                23 {}
+Local Area Connection* 2                 2 {}
+Local Area Connection* 2                23 {}
+WiFi                                     2 {8.8.8.8, 8.8.4.4}
+WiFi                                    23 {}
+Bluetooth Network Connection             2 {}
+Bluetooth Network Connection            23 {}
+Loopback Pseudo-Interface 1              2 {}
+Loopback Pseudo-Interface 1             23 {fec0:0:0:ffff::1, fec0:0:0:ffff::2, fec0:0:0:ffff::3}
+
+========================================
+PROJECT NETWORK-RELATED SOURCE FILES
+========================================
+(No output)
+
+========================================
+GIT STATUS (READ ONLY)
+========================================
+## main...origin/main
+ M docs/architecture/ARCHITECTURE_DECISIONS.md
+ M docs/continuation/PART1_ACCEPTANCE_AND_CONTINUATION.md
+?? apps/api/app/security/
+?? apps/api/tests/
+?? docs/reports/PART1_RECONCILIATION_READONLY_AUDIT.txt
+?? docs/reports/PART3_REAL_ORDER_ISOLATION_READONLY_AUDIT.txt
+?? docs/reports/PART3_SIGNAL_ONLY_SAFETY_BOUNDARY.md
+?? docs/reports/PART3_WINDOWS_EGRESS_BASELINE.txt
+
+========================================
+AUDIT LIMITATIONS
+========================================
+Host baseline only; not proof of application-level egress isolation.
+No firewall rules, routes, proxy settings or source files changed.
