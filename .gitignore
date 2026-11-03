@@ -1,0 +1,102 @@
+﻿# ============================================
+# ZaK Trading View - Git Ignore Policy
+# ============================================
+
+# Environment files and secrets
+.env
+.env.*
+!.env.example
+!.env.test.example
+!.env.production.example
+
+# Credentials and private keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa
+id_ed25519
+credentials.json
+service-account.json
+secrets.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.venv/
+venv/
+ENV/
+
+# Node.js
+node_modules/
+.next/
+.nuxt/
+.output/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Package manager local files
+.npm/
+.pnpm-store/
+
+# Logs and temporary data
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+
+# Databases and database backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+database-backups/
+
+# Runtime data
+data/private/
+storage/private/
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+*.suo
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local infrastructure state
+.terraform/
+terraform.tfstate
+terraform.tfstate.*
+
+# Test and profiling output
+.prof
+.profraw
+*.trace
+playwright-report/
+test-results/
+
+# Generated documentation output
+site/
