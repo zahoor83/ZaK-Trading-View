@@ -60,7 +60,7 @@ Verified development environment:
 - VS Code 1.144.0.
 - PostgreSQL client 18.6.
 
-PostgreSQL server was installed but stopped during initial inspection.
+Latest verified check (3 November 2026): PostgreSQL 18.6 service `postgresql-x64-18` is Running with Automatic startup. `127.0.0.1:5432` accepts connections, and authenticated SQL execution as `postgres` succeeded.
 
 Docker and Redis CLI were not detected.
 
@@ -132,8 +132,8 @@ Never report tests as passed without actual execution output.
 - Local Git repository initialized on branch `main`.
 - GitHub repository: https://github.com/zahoor83/ZaK-Trading-View
 - GitHub visibility: Private (independently verified through authenticated GitHub API).
-- Local Git remote is not yet configured.
-- No initial commit or push has been performed.
+- Remote: origin (https://github.com/zahoor83/ZaK-Trading-View.git), tracking origin/main.
+- Current branch: main. Current HEAD: 0be8aee57f35054c1e9d4e254c7c344885ae87eb.
 
 Before committing:
 
@@ -154,7 +154,7 @@ Before destructive Git operations:
 4. Create a verified backup outside the repository.
 5. Never use `git reset --hard`, `git clean -fd`, or force push without explicit authorization.
 
-Local Git history is not a substitute for independent backups.
+Local Git history is not a substitute for independent backups. A successful backup-and-restore drill has not yet been verified in the available Part 2 evidence.
 
 ## Documentation
 
