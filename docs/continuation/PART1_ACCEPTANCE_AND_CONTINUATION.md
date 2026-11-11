@@ -224,3 +224,172 @@ Preserve the established workflow:
 - After an approved Part is complete, commit and push only reviewed, intended files; verify local/remote commit hashes and working-tree status.
 
 **Next action:** Complete final documentation diff review, rerun the approved verification suite, then commit and push the two reviewed Part 3 documentation files. Stop after Part 3 acceptance; do not begin Part 4 without explicit user approval.
+---
+
+# ADDENDUM — CURRENT ACCEPTANCE AND CONTINUATION SNAPSHOT
+**Snapshot Date:** 2026-11-11
+**Project:** ZaK Trading View
+**Project Root:** `D:\ZaK Trading View`
+
+## 1. Current Task Workflow Status
+
+This is the current follow-on implementation and acceptance workflow. It is separate from the historical five-phase Part 3 acceptance workflow documented above.
+
+| Task | Description | Status |
+|---|---|---|
+| Tasks 1–10 | Previously completed project tasks | COMPLETE |
+| Task 11 | Backend service/API integration | COMPLETE |
+| Task 12 | Frontend integration and runtime verification | COMPLETE |
+| Task 13 | Full regression and security verification | COMPLETE — ACCEPTED |
+| Task 14 | Final documentation and acceptance | IN PROGRESS |
+
+Task 13 acceptance was explicitly approved by the user with application-level egress security accepted as the required standard and Windows default outbound Allow retained as a documented residual risk.
+
+## 2. Latest Task 13 Verification Evidence
+
+The following results were supplied by the user from local PowerShell execution.
+
+### Backend regression
+
+Command:
+
+```powershell
+cd "D:\ZaK Trading View\apps\api"
+python -m pytest -q
+```
+
+Result:
+
+- 549 passed.
+- 466 subtests passed.
+- Duration: 28.73 seconds.
+
+**Status: PASS.**
+
+### Frontend verification
+
+- `npm run typecheck` — PASS.
+- `npm run build` — PASS.
+- Next.js version: 16.4.4 with Turbopack.
+- TypeScript validation completed successfully.
+- Static page generation: 9/9.
+- Final production optimization completed successfully.
+
+**Status: PASS.**
+
+### Dedicated security regression
+
+Command:
+
+```powershell
+cd "D:\ZaK Trading View\apps\api"
+python -m pytest -q `
+  tests/test_egress_policy.py `
+  tests/test_public_http.py `
+  tests/test_public_websocket.py `
+  tests/test_websocket_egress.py `
+  tests/test_rate_limit.py `
+  tests/test_rate_limit_store.py `
+  tests/test_websocket_inbound.py `
+  tests/test_websocket_reconnect.py
+```
+
+Result:
+
+- 205 passed.
+- 105 subtests passed.
+- Duration: 38.31 seconds.
+
+**Status: PASS.**
+
+## 3. Task 13 Security Acceptance and Residual Risks
+
+The accepted security boundary is application-level egress policy and transport enforcement within the inspected implementation.
+
+| Control | Status |
+|---|---|
+| Application-level egress policy | PASS |
+| Backend regression | PASS |
+| Frontend typecheck and production build | PASS |
+| Dedicated security tests | PASS |
+| Windows Firewall profiles enabled | VERIFIED |
+| Windows default outbound-deny | NOT CONFIGURED — accepted residual risk |
+| Independent outbound Block-rule query | NOT VERIFIED — Access Denied |
+| DNS resolution pinning | NOT ESTABLISHED |
+| Windows-wide process/domain isolation | NOT ESTABLISHED |
+
+The latest Windows inspection reported Domain, Private and Public profiles enabled, with `DefaultOutboundAction = Allow` for all three profiles.
+
+No Windows Firewall configuration was changed.
+
+The limitations above remain explicit. Application-level acceptance must not be described as Windows-wide outbound isolation or DNS pinning.
+
+Detailed records are maintained in:
+
+- `docs\reports\PART3_FINAL_ACCEPTANCE.md`
+- `docs\reports\PART3_WINDOWS_EGRESS_BASELINE.txt`
+
+## 4. Task 14 Documentation Scope
+
+Task 14 is limited to reconciling and verifying these three documents:
+
+1. `docs\reports\PART3_FINAL_ACCEPTANCE.md`
+2. `docs\reports\PART3_WINDOWS_EGRESS_BASELINE.txt`
+3. `docs\continuation\PART1_ACCEPTANCE_AND_CONTINUATION.md`
+
+The first two documents have received their 2026-11-11 verification addenda. This continuation snapshot is the third and final document in the current Task 14 scope.
+
+Historical content must remain preserved. New verification information is appended as dated addenda rather than replacing historical acceptance records.
+
+## 5. Git and Repository State — 2026-11-11
+
+Latest user-provided Git inspection:
+
+- Branch: `main`.
+- Local HEAD: `a2b9495dcc1be55fc2464537f8ca352714734243`.
+- `origin/main`: `a2b9495dcc1be55fc2464537f8ca352714734243`.
+- Latest commit message: `docs: reconcile Part 3 acceptance and continuation state`.
+- Local and remote commit hashes matched at the time of inspection.
+- Working tree contained numerous modified and untracked implementation, test, backup, patch and build-related files.
+
+The three target documentation files were backed up before Task 14 editing.
+
+The final acceptance report and Windows baseline were edited locally during Task 14. Their changes must be reviewed before any future commit.
+
+No commit or push of the Task 14 documentation changes is claimed.
+
+**Git safety rule:** Do not stage broad working-tree changes. Do not commit or push unless the user explicitly authorizes it. Preserve all unrelated modified and untracked files.
+
+## 6. Historical Part 3 Workflow Clarification
+
+The fixed five-phase Part 3 acceptance workflow recorded in the historical sections above is distinct from the current Task 1–14 workflow.
+
+The five-phase Part 3 acceptance decision remains accepted within its documented scope limitations.
+
+The current follow-on implementation work, including Tasks 11–13, does not retroactively expand the original Part 3 acceptance scope.
+
+## 7. Final Continuation Instruction
+
+Task 14 is the final task currently authorized.
+
+After the three target documents have been reviewed, verified and accepted:
+
+- Mark Task 14 COMPLETE only when its documentation checks genuinely pass.
+- Display the current task checklist with Tasks 1–14 marked COMPLETE.
+- Do not begin another task, Part or development phase automatically.
+- Stop and wait for the user's next explicit instruction.
+
+No commit, push, firewall modification, unrelated cleanup or additional implementation work is authorized by this snapshot.
+
+**Current status: TASK 14 — IN PROGRESS.**
+
+**End of 2026-11-11 Current Acceptance and Continuation Addendum.**
+---
+
+## Historical Next-Action Supersession — 2026-11-11
+
+The commit/push instruction in the historical 2026-11-03 snapshot is superseded for the current Task 14 workflow.
+
+No commit or push is authorized unless the user explicitly requests it. The current Task 14 scope and continuation instructions in the 2026-11-11 addendum take precedence.
+
+**End of supersession clarification.**

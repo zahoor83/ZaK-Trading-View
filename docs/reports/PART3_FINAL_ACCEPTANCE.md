@@ -216,3 +216,132 @@ Part 4 must not begin until the user explicitly approves proceeding.
 ---
 
 **End of Part 3 Final Acceptance Report**
+---
+
+## 11. Final Task 13 Verification Addendum — 2026-11-11
+
+**Verification date:** 2026-11-11
+**Project root:** `D:\ZaK Trading View`
+**Branch:** `main`
+**Verification scope:** Current Task 13 regression and security acceptance.
+
+### 11.1 Latest Backend Regression
+
+User-provided PowerShell test output:
+
+| Verification | Result |
+|---|---:|
+| Full backend pytest suite | 549 passed |
+| Pytest subtests | 466 passed |
+
+Command:
+
+```powershell
+cd "D:\ZaK Trading View\apps\api"
+python -m pytest -q
+```
+
+**Result: PASS.**
+
+### 11.2 Frontend Verification
+
+| Verification | Result |
+|---|---|
+| TypeScript typecheck | PASS |
+| Next.js production build | PASS |
+| Production route generation | PASS |
+
+The production build used Next.js 16.4.4 with Turbopack. Compilation, TypeScript validation, static page generation (9/9) and final optimization completed successfully.
+
+**Result: PASS.**
+
+### 11.3 Dedicated Security Regression
+
+User-provided PowerShell test output:
+
+| Verification | Result |
+|---|---:|
+| Dedicated security tests | 205 passed |
+| Pytest subtests | 105 passed |
+
+The tested files covered:
+
+- Egress policy
+- Public HTTP transport
+- Public WebSocket transport
+- WebSocket egress
+- Rate limiting and rate-limit storage
+- WebSocket inbound validation
+- WebSocket reconnect behavior
+
+**Result: PASS.**
+
+### 11.4 Windows Firewall — Latest Inspection
+
+Latest user-provided inspection on 2026-11-11:
+
+- Domain, Private and Public firewall profiles are enabled.
+- `DefaultOutboundAction` is `Allow` for all three profiles.
+- The supplied `netsh` outbound rule listing showed Allow rules.
+- The PowerShell `Get-NetFirewallRule` query returned `Access is denied`.
+- Independent verification of enabled outbound Block rules could not be completed through that query.
+- No Windows Firewall configuration was changed during this verification.
+
+**Accepted residual risk:** Windows OS-level default-deny outbound enforcement is not configured. Task 13 accepts application-level egress security as its required standard. This acceptance does not claim Windows-wide process or domain isolation.
+
+### 11.5 Application-Level Egress Source Audit
+
+The reviewed application source established the following controls within the inspected implementation:
+
+- Approved Binance public market-data hosts and paths.
+- HTTPS/WSS and standard port restrictions.
+- HTTP GET-only policy.
+- TLS certificate and hostname verification.
+- HTTP redirect rejection.
+- Environment proxy inheritance disabled in the HTTP transport.
+- Bounded HTTP response size and request timeout.
+- WebSocket connection and message limits.
+- Validation before the corresponding tested transport operations.
+
+**Source-audit limitation:** DNS resolution pinning was not established. Exact hostname validation and TLS verification do not constitute DNS pinning or OS-level network isolation.
+
+### 11.6 Task 13 Acceptance Decision
+
+Task 13 is accepted based on the user-provided regression results, frontend build evidence, dedicated security tests and reviewed application-level egress controls.
+
+| Acceptance criterion | Final status |
+|---|---|
+| Backend regression | PASS |
+| Frontend typecheck | PASS |
+| Frontend production build | PASS |
+| Dedicated security regression | PASS |
+| Application-level egress source audit | PASS |
+| Windows Firewall enabled | PASS |
+| Windows outbound default-deny | NOT CONFIGURED — accepted residual risk |
+| Independent Block-rule query | NOT VERIFIED — Access Denied |
+| DNS resolution pinning | NOT ESTABLISHED |
+
+**TASK 13: ACCEPTED.**
+
+The accepted limitations above remain explicitly documented and must not be represented as verified security controls.
+
+### 11.7 Repository State at Verification
+
+User-provided Git verification on 2026-11-11:
+
+- Branch: `main`.
+- Local HEAD: `a2b9495dcc1be55fc2464537f8ca352714734243`.
+- `origin/main`: `a2b9495dcc1be55fc2464537f8ca352714734243`.
+- Latest commit: `docs: reconcile Part 3 acceptance and continuation state`.
+- Local and remote commit hashes matched at inspection.
+- Working tree contained numerous modified and untracked implementation, test, backup and patch files.
+- These changes were not included in this acceptance addendum.
+- No commit or push of this addendum is claimed.
+
+### 11.8 Documentation Continuation
+
+Task 14 remains responsible for reconciling the final acceptance report, Windows egress baseline and continuation snapshot.
+
+No subsequent project Part is authorized by this addendum.
+
+**End of Task 13 Verification Addendum.**

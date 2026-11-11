@@ -41,6 +41,18 @@ _ALLOWED_HOST_PATHS: dict[str, frozenset[str]] = {
             "/api/v3/ticker/bookTicker",
         }
     ),
+    "data-api.binance.vision": frozenset(
+        {
+            "/api/v3/time",
+            "/api/v3/exchangeInfo",
+            "/api/v3/klines",
+            "/api/v3/depth",
+            "/api/v3/avgPrice",
+            "/api/v3/ticker/24hr",
+            "/api/v3/ticker/price",
+            "/api/v3/ticker/bookTicker",
+        }
+    ),
     "fapi.binance.com": frozenset(
         {
             "/fapi/v1/time",

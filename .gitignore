@@ -1,4 +1,4 @@
-﻿# ============================================
+# ============================================
 # ZaK Trading View - Git Ignore Policy
 # ============================================
 
@@ -100,3 +100,4 @@ test-results/
 
 # Generated documentation output
 site/
+*.init.lock

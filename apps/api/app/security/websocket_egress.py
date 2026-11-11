@@ -194,6 +194,21 @@ def validate_public_market_data_websocket_url(
             "WebSocket path is not an approved public market-data endpoint."
         )
 
+    if market == "usdm_futures":
+        if path.startswith(("/public/ws/", "/public/stream")):
+            expected_stream = re.compile(r"^[a-z0-9]+@depth$")
+        elif path.startswith(("/market/ws/", "/market/stream")):
+            expected_stream = re.compile(r"^[a-z0-9]+@markPrice$")
+        else:
+            raise WebSocketEgressViolation(
+                "Futures endpoint category is not recognized."
+            )
+
+        if any(expected_stream.fullmatch(stream) is None for stream in streams):
+            raise WebSocketEgressViolation(
+                "Futures stream does not match its endpoint category."
+            )
+
     return ApprovedWebSocketRequest(
         market=market,
         host=host,

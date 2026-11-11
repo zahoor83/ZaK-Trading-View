@@ -235,3 +235,72 @@ AUDIT LIMITATIONS
 ========================================
 Host baseline only; not proof of application-level egress isolation.
 No firewall rules, routes, proxy settings or source files changed.
+---
+
+# ADDENDUM — WINDOWS EGRESS RE-VERIFICATION
+**Verification Date:** 2026-11-11
+**Project:** ZaK Trading View
+**Audit Type:** Read-only Windows Firewall and outbound egress inspection
+
+## 1. Latest Firewall Profile State
+
+User-provided PowerShell inspection on 2026-11-11 reported:
+
+| Firewall Profile | Enabled | Default Inbound | Default Outbound |
+|---|---|---|---|
+| Domain | True | NotConfigured | Allow |
+| Private | True | Block | Allow |
+| Public | True | Block | Allow |
+
+All three Windows Firewall profiles were enabled. Default outbound action remained `Allow` across all profiles.
+
+## 2. Outbound Rule Inspection
+
+The user-provided `netsh advfirewall firewall show rule name=all dir=out` output included enabled outbound Allow rules.
+
+The independent PowerShell `Get-NetFirewallRule` inspection returned `Access is denied` during the latest verification.
+
+Consequently:
+
+- Outbound Allow rules were visible in the supplied `netsh` output.
+- Independent verification of all enabled outbound Block rules was not completed.
+- Absence of Block rules must not be claimed as independently verified from this inspection.
+
+## 3. Security Boundary and Accepted Residual Risk
+
+**Windows OS-level default-deny outbound enforcement is NOT CONFIGURED.**
+
+The application-level egress policy remains the accepted security boundary for the current Task 13 acceptance decision.
+
+This Windows baseline does not establish:
+
+- Windows-wide process-level outbound isolation.
+- OS-level domain allowlisting.
+- DNS resolution pinning.
+- Protection against every other process on the host initiating outbound connections.
+
+The application source audit and dedicated security regression results are documented separately in `PART3_FINAL_ACCEPTANCE.md`.
+
+## 4. Configuration Change Record
+
+This verification was read-only.
+
+- No Windows Firewall profile was modified.
+- No firewall rule was added, removed, enabled or disabled.
+- No route or proxy configuration was changed.
+- No DNS configuration was changed.
+
+## 5. Final Assessment
+
+| Control | 2026-11-11 Status |
+|---|---|
+| Windows Firewall profiles enabled | VERIFIED |
+| Default outbound action set to Block | NOT CONFIGURED |
+| Outbound Allow rules visible | VERIFIED |
+| Independent outbound Block-rule inspection | NOT VERIFIED — Access Denied |
+| Windows-wide outbound isolation | NOT ESTABLISHED |
+| Application-level egress security | ACCEPTED under Task 13 |
+
+**Final conclusion:** Windows Firewall remains enabled, but its default outbound policy is Allow. This is an explicitly accepted residual risk, not a verified OS-level default-deny security control.
+
+**End of 2026-11-11 Windows Egress Re-verification Addendum.**

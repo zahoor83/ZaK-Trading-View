@@ -134,5 +134,20 @@ class PublicWebSocketEgressTests(unittest.TestCase):
                     validate_public_market_data_websocket_url(url)
 
 
+    def test_rejects_futures_streams_on_wrong_endpoint_category(self):
+        urls = (
+            "wss://fstream.binance.com/public/ws/btcusdt@markPrice",
+            "wss://fstream.binance.com/market/ws/btcusdt@depth",
+            "wss://fstream.binance.com/public/stream?streams=btcusdt@depth/ethusdt@markPrice",
+            "wss://fstream.binance.com/market/stream?streams=btcusdt@markPrice/ethusdt@depth",
+        )
+
+        for url in urls:
+            with self.subTest(url=url):
+                with self.assertRaises(WebSocketEgressViolation):
+                    validate_public_market_data_websocket_url(url)
+
+
+
 if __name__ == "__main__":
     unittest.main()

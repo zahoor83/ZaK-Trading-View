@@ -34,6 +34,29 @@ class PublicMarketDataEgressPolicyTests(unittest.TestCase):
 
         self.assertEqual(result.host, "fapi.binance.com")
 
+    def test_allows_dedicated_spot_market_data_host(self):
+        result = validate_public_market_data_request(
+            "GET",
+            "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m",
+        )
+
+        self.assertEqual(result.host, "data-api.binance.vision")
+        self.assertEqual(result.path, "/api/v3/klines")
+
+    def test_rejects_unapproved_path_on_dedicated_data_host(self):
+        with self.assertRaises(EgressPolicyViolation):
+            validate_public_market_data_request(
+                "GET",
+                "https://data-api.binance.vision/api/v3/order",
+            )
+
+    def test_rejects_lookalike_dedicated_data_host(self):
+        with self.assertRaises(EgressPolicyViolation):
+            validate_public_market_data_request(
+                "GET",
+                "https://data-api.binance.vision.evil.example/api/v3/klines",
+            )
+
     def test_rejects_non_get_methods(self):
         for method in ("POST", "PUT", "PATCH", "DELETE", "OPTIONS", ""):
             with self.subTest(method=method):
