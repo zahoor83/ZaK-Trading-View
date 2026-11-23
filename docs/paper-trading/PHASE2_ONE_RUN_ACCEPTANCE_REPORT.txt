@@ -1,0 +1,38 @@
+ZaK Trading View - Phase 2 One-Run Acceptance Report
+Generated: 2026-11-16T15:36:47.2598873+05:00
+Project: D:\ZaK Trading View
+
+CHECK RESULTS
+[PASS] Both architecture documents exist - Contract and final architecture document found.
+[PASS] Contract migration section contains required manifest controls - Section 11.3 inspected.
+[PASS] Contract ownership section contains grant and claim lifecycle - Section 11.4 inspected.
+[PASS] Final architecture document updated - Backup: D:\ZaK Trading View\docs\paper-trading\PHASE2_FINAL_ARCHITECTURE_DECISIONS.md.phase2-backup-20261116_153632
+[PASS] Governing contract reconciled - Backup: D:\ZaK Trading View\docs\paper-trading\PHASE2_ARCHITECTURE_CONTRACT.md.phase2-backup-20261116_153632
+[PASS] Migration manifest detail - Document content verification.
+[PASS] Ownership grant lifecycle - Document content verification.
+[PASS] Canonical snapshot decision - Document content verification.
+[PASS] Finite NUMERIC validation - Document content verification.
+[PASS] Implementation boundary stated - Document content verification.
+[PASS] Contract and final doc agree on snapshot policy - Document content verification.
+[PASS] Alembic env.py metadata configuration present - Read-only inspection of migrations/env.py.
+[PASS] SQLAlchemy model registration file present - Read-only inspection of app/models/__init__.py.
+[PASS] Database base metadata declaration present - Read-only inspection of app/database/base.py.
+[PASS] Expected six existing migration revisions found - Found: 0001_identity_accounts, 0002_portfolios_sessions, 0003_oidc_auth_transactions, 0004_oidc_idempotency_records, 0005_internal_service_nonces, 0006_internal_service_nonce_uuid
+[PASS] Migration files form a linear chain in filename order - No migration was executed or modified.
+[PASS] Implementation boundary accurately reported - No implementation found in app source; implementation remains for Phase 3.
+
+MIGRATION INVENTORY
+0001_identity_accounts.py | revision=0001_identity_accounts | down_revision=None
+0002_portfolios_sessions.py | revision=0002_portfolios_sessions | down_revision=0001_identity_accounts
+0003_oidc_auth_transactions.py | revision=0003_oidc_auth_transactions | down_revision=0002_portfolios_sessions
+0004_oidc_idempotency_records.py | revision=0004_oidc_idempotency_records | down_revision=0003_oidc_auth_transactions
+0005_internal_service_request_nonces.py | revision=0005_internal_service_nonces | down_revision=0004_oidc_idempotency_records
+0006_internal_service_nonce_uuid_default.py | revision=0006_internal_service_nonce_uuid | down_revision=0005_internal_service_nonces
+
+FINANCIAL IMPLEMENTATION SOURCE MATCHES
+No matching financial ledger table names found in app source.
+
+OVERALL DOCUMENT/SOURCE AUDIT: PASS
+This report does not claim Phase 3 implementation or financial runtime tests.
+No database was connected. No migration was executed. No Git command was run.
+No .env or credential file was read.
