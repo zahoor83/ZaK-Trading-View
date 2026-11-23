@@ -35,11 +35,16 @@ class MarketDataConfig:
     """Explicit symbol selection; empty groups remain disabled."""
 
     spot_symbols: tuple[str, ...] = ()
+    spot_book_ticker_symbols: tuple[str, ...] = ()
     futures_depth_symbols: tuple[str, ...] = ()
     futures_mark_price_symbols: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _validate_symbols(self.spot_symbols, "spot_symbols")
+        _validate_symbols(
+            self.spot_book_ticker_symbols,
+            "spot_book_ticker_symbols",
+        )
         _validate_symbols(self.futures_depth_symbols, "futures_depth_symbols")
         _validate_symbols(
             self.futures_mark_price_symbols,
@@ -50,6 +55,7 @@ class MarketDataConfig:
     def is_enabled(self) -> bool:
         return bool(
             self.spot_symbols
+            or self.spot_book_ticker_symbols
             or self.futures_depth_symbols
             or self.futures_mark_price_symbols
         )
@@ -75,6 +81,18 @@ class MarketDataConfig:
         streams = tuple(
             f"{symbol.lower()}@trade"
             for symbol in self.spot_symbols
+        )
+        return self._build_url(
+            "data-stream.binance.vision",
+            "/stream",
+            streams,
+        )
+
+    @property
+    def spot_book_ticker_websocket_url(self) -> str | None:
+        streams = tuple(
+            f"{symbol.lower()}@bookTicker"
+            for symbol in self.spot_book_ticker_symbols
         )
         return self._build_url(
             "data-stream.binance.vision",
@@ -112,6 +130,9 @@ class MarketDataConfig:
 
         if self.spot_symbols:
             groups.append(("spot", self.spot_symbols))
+
+        if self.spot_book_ticker_symbols:
+            groups.append(("spot_book_ticker", self.spot_book_ticker_symbols))
 
         if self.futures_depth_symbols:
             groups.append(("futures_depth", self.futures_depth_symbols))

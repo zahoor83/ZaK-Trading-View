@@ -1735,3 +1735,421 @@ async def test_clock_maintenance_invalidates_only_failed_market_and_retries():
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
+
+@pytest.mark.asyncio
+async def test_book_ticker_only_bootstrap_fetches_metadata_without_exchange_clock(monkeypatch):
+    calls = []
+
+    monkeypatch.setattr(
+        "app.market_data.service.parse_spot_exchange_info",
+        lambda payload, *, fetched_at_monotonic: FakeMetadata({"BTCUSDT"}),
+    )
+
+    def forbidden_clock_factory():
+        raise AssertionError(
+            "BookTicker-only bootstrap must not initialize ExchangeClock."
+        )
+
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        spot_client_factory=lambda: FakeSpotClient(calls),
+        clock_factory=forbidden_clock_factory,
+        monotonic=lambda: 100.0,
+    )
+
+    report = await service.bootstrap()
+
+    assert "spot" in report.resources
+    assert not report.errors
+    assert calls == ["spot_exchange_info"]
+
+    resources = report.resources["spot"]
+    assert resources.market == "spot"
+    assert resources.clock is None
+    assert resources.freshness_validator is None
+    assert resources.server_time_provider is None
+    assert resources.metadata is not None
+@pytest.mark.asyncio
+async def test_book_ticker_lifecycle_uses_no_exchange_clock_and_refreshes_metadata(monkeypatch):
+    calls = []
+    created = {}
+
+    monkeypatch.setattr(
+        "app.market_data.service.parse_spot_exchange_info",
+        lambda payload, *, fetched_at_monotonic: FakeMetadata({"BTCUSDT"}),
+    )
+
+    def forbidden_clock_factory():
+        raise AssertionError("BookTicker-only lifecycle must not create ExchangeClock.")
+
+    def factory(config, group, **kwargs):
+        item = FakeLifecycleSupervisor(config, group, **kwargs)
+        created[group] = item
+        return item
+
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        spot_client_factory=lambda: FakeSpotClient(calls),
+        clock_factory=forbidden_clock_factory,
+        monotonic=lambda: 100.0,
+        supervisor_factory=factory,
+    )
+
+    report = await service.start()
+    try:
+        await created["spot_book_ticker"].started.wait()
+
+        assert set(created) == {"spot_book_ticker"}
+        supervisor = created["spot_book_ticker"]
+        assert supervisor.kwargs["freshness_validator"] is None
+        assert supervisor.kwargs["on_event"] is not None
+        assert supervisor.kwargs["on_connection_lost"] is not None
+        assert supervisor.kwargs["on_depth_event"] is None
+
+        assert service._enabled_groups() == (("spot_book_ticker", "spot"),)
+        assert service._market_for_group("spot_book_ticker") == "spot"
+        assert service._clock_tasks == {}
+        assert set(service._metadata_tasks) == {"spot"}
+        assert report.resources["spot"].clock is None
+    finally:
+        await service.stop()
+
+
+@pytest.mark.parametrize(
+    ("received_at", "expected_state"),
+    [
+        (99.0, PipelineState.READY),
+        (98.999, PipelineState.STALE),
+    ],
+)
+def test_book_ticker_health_enforces_one_second_receive_age(received_at, expected_state):
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        monotonic=lambda: 100.0,
+    )
+    service._resources["spot"] = SimpleNamespace(
+        clock=None,
+        metadata=FakeHealthMetadata(True),
+        freshness_validator=None,
+    )
+    service._pipeline_states["spot_book_ticker"] = PipelineState.SUBSCRIBING
+    service._supervisors["spot_book_ticker"] = SimpleNamespace(
+        state=SimpleNamespace(value="SUBSCRIPTIONS_READY"),
+        active_streams=("btcusdt@bookTicker",),
+    )
+
+    event = SimpleNamespace(
+        message=SimpleNamespace(
+            kind="event",
+            market="spot",
+            event_type=None,
+            symbol="BTCUSDT",
+            stream="btcusdt@bookTicker",
+            payload={
+                "u": 123456,
+                "s": "BTCUSDT",
+                "b": "100.00",
+                "B": "2.0",
+                "a": "100.01",
+                "A": "3.0",
+            },
+        ),
+        received_at_monotonic=received_at,
+        freshness=None,
+        book_synchronized=False,
+    )
+
+    assert asyncio.run(
+        service._record_supervised_event("spot_book_ticker", event)
+    ) is True
+
+    status = service.health_snapshot().pipelines[0]
+
+    assert status.group.value == "spot_book_ticker"
+    assert status.active_streams == ("btcusdt@bookTicker",)
+    assert status.clock_synchronized is False
+    assert status.metadata_fresh is True
+    assert status.last_update_id == 123456
+    assert status.last_event_received_at_monotonic == received_at
+    assert status.last_event_type is None
+    assert status.last_event_timestamp_ms is None
+    assert status.last_freshness_state is None
+    assert status.state is expected_state
+    if expected_state is PipelineState.READY:
+        assert status.last_error is None
+    else:
+        assert status.last_error == "BookTickerReceiveAgeExceeded"
+
+
+def test_spot_clock_invalidation_does_not_clear_or_degrade_book_ticker():
+    service = MarketDataService(
+        MarketDataConfig(
+            spot_symbols=("BTCUSDT",),
+            spot_book_ticker_symbols=("ETHUSDT",),
+        ),
+        monotonic=lambda: 100.0,
+    )
+    install_health_resources(service)
+
+    trade_event, _ = make_cache_event("spot", "BTCUSDT", 10_000, 90.0)
+    assert asyncio.run(service._record_supervised_event("spot", trade_event)) is True
+
+    quote_event = SimpleNamespace(
+        message=SimpleNamespace(
+            kind="event",
+            market="spot",
+            event_type=None,
+            symbol="ETHUSDT",
+            stream="ethusdt@bookTicker",
+            payload={
+                "u": 98765,
+                "s": "ETHUSDT",
+                "b": "2000.00",
+                "B": "1.0",
+                "a": "2000.01",
+                "A": "2.0",
+            },
+        ),
+        received_at_monotonic=95.0,
+        freshness=None,
+        book_synchronized=False,
+    )
+    assert asyncio.run(
+        service._record_supervised_event("spot_book_ticker", quote_event)
+    ) is True
+
+    service._invalidate_market_events("spot")
+
+    assert ("spot", "BTCUSDT") not in service._latest_events
+    assert ("spot_book_ticker", "ETHUSDT") in service._spot_book_ticker_quotes
+    assert service.pipeline_states["spot"] is PipelineState.UNSYNCED
+    assert service.pipeline_states["spot_book_ticker"] is PipelineState.SUBSCRIBING
+    assert "spot_book_ticker" not in service.pipeline_errors
+
+@pytest.mark.asyncio
+async def test_book_ticker_rejects_huge_integer_receive_timestamp():
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        monotonic=lambda: 100.0,
+    )
+    event = SimpleNamespace(
+        message=SimpleNamespace(
+            kind="event",
+            market="spot",
+            event_type=None,
+            symbol="BTCUSDT",
+            stream="btcusdt@bookTicker",
+            payload={
+                "u": 123456,
+                "s": "BTCUSDT",
+                "b": "100.00",
+                "B": "2.0",
+                "a": "100.01",
+                "A": "3.0",
+            },
+        ),
+        received_at_monotonic=10**10000,
+        freshness=None,
+        book_synchronized=False,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="Invalid BookTicker receive monotonic timestamp",
+    ):
+        await service._record_spot_book_ticker_event(event)
+# Spot BookTicker lifecycle regression coverage.
+def make_spot_book_ticker_event(symbol, update_id, received_at):
+    return SimpleNamespace(
+        message=SimpleNamespace(
+            kind="event",
+            market="spot",
+            event_type=None,
+            symbol=symbol,
+            stream=f"{symbol.lower()}@bookTicker",
+            payload={
+                "u": update_id,
+                "s": symbol,
+                "b": "100.00",
+                "B": "2.0",
+                "a": "100.01",
+                "A": "3.0",
+            },
+        ),
+        received_at_monotonic=received_at,
+        freshness=None,
+        book_synchronized=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_book_ticker_rejects_duplicate_and_backwards_update_ids():
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        monotonic=lambda: 100.0,
+    )
+
+    first = make_spot_book_ticker_event("BTCUSDT", 100, 99.0)
+    duplicate = make_spot_book_ticker_event("BTCUSDT", 100, 99.2)
+    backwards = make_spot_book_ticker_event("BTCUSDT", 99, 99.3)
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", first
+    ) is True
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", duplicate
+    ) is False
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", backwards
+    ) is False
+
+    cached = service._spot_book_ticker_quotes[
+        ("spot_book_ticker", "BTCUSDT")
+    ]
+
+    assert cached.update_id == 100
+    assert cached.received_at_monotonic == 99.0
+
+
+@pytest.mark.asyncio
+async def test_book_ticker_accepts_non_contiguous_update_id_gap():
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        monotonic=lambda: 100.0,
+    )
+
+    first = make_spot_book_ticker_event("BTCUSDT", 100, 99.0)
+    later = make_spot_book_ticker_event("BTCUSDT", 105, 99.5)
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", first
+    ) is True
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", later
+    ) is True
+
+    cached = service._spot_book_ticker_quotes[
+        ("spot_book_ticker", "BTCUSDT")
+    ]
+
+    assert cached.update_id == 105
+    assert cached.received_at_monotonic == 99.5
+
+
+def test_book_ticker_multi_symbol_health_fails_closed_when_one_quote_expires():
+    service = MarketDataService(
+        MarketDataConfig(
+            spot_book_ticker_symbols=("BTCUSDT", "ETHUSDT")
+        ),
+        monotonic=lambda: 100.0,
+    )
+
+    service._resources["spot"] = SimpleNamespace(
+        clock=None,
+        metadata=FakeHealthMetadata(True),
+        freshness_validator=None,
+    )
+    service._pipeline_states["spot_book_ticker"] = PipelineState.SUBSCRIBING
+    service._supervisors["spot_book_ticker"] = SimpleNamespace(
+        state=SimpleNamespace(value="SUBSCRIPTIONS_READY"),
+        active_streams=(
+            "btcusdt@bookTicker",
+            "ethusdt@bookTicker",
+        ),
+    )
+
+    btc_event = make_spot_book_ticker_event("BTCUSDT", 100, 99.5)
+    eth_event = make_spot_book_ticker_event("ETHUSDT", 200, 98.999)
+
+    assert asyncio.run(
+        service._record_supervised_event("spot_book_ticker", btc_event)
+    ) is True
+
+    assert asyncio.run(
+        service._record_supervised_event("spot_book_ticker", eth_event)
+    ) is True
+
+    status = service.health_snapshot().pipelines[0]
+
+    assert status.state is PipelineState.STALE
+    assert status.last_error == "BookTickerReceiveAgeExceeded"
+
+    quote_statuses = {
+        item.symbol: item for item in status.book_ticker_quotes
+    }
+
+    assert set(quote_statuses) == {"BTCUSDT", "ETHUSDT"}
+    assert 100.0 - quote_statuses["BTCUSDT"].received_at_monotonic <= 1.0
+    assert 100.0 - quote_statuses["ETHUSDT"].received_at_monotonic > 1.0
+
+
+@pytest.mark.asyncio
+async def test_book_ticker_disconnect_invalidates_cache_until_fresh_reconnect_quote():
+    service = MarketDataService(
+        MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",)),
+        monotonic=lambda: 100.0,
+    )
+
+    install_health_resources(service)
+
+    supervisor = SimpleNamespace(
+        state=SimpleNamespace(value="SUBSCRIPTIONS_READY"),
+        active_streams=("btcusdt@bookTicker",),
+    )
+    service._supervisors["spot_book_ticker"] = supervisor
+    service._pipeline_states["spot_book_ticker"] = PipelineState.SUBSCRIBING
+
+    initial_event = make_spot_book_ticker_event("BTCUSDT", 500, 99.5)
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", initial_event
+    ) is True
+
+    initial_status = service.health_snapshot().pipelines[0]
+    assert initial_status.state is PipelineState.READY
+
+    connection_lost = service._make_connection_lost_callback(
+        "spot_book_ticker"
+    )
+    await connection_lost()
+
+    assert (
+        "spot_book_ticker", "BTCUSDT"
+    ) not in service._spot_book_ticker_quotes
+
+    assert (
+        service.pipeline_states["spot_book_ticker"]
+        is PipelineState.UNSYNCED
+    )
+    assert (
+        service.pipeline_errors["spot_book_ticker"]
+        == "WebSocketConnectionLost"
+    )
+
+    # Simulate the supervisor being disconnected during reconnect.
+    supervisor.state = SimpleNamespace(value="CONNECTING")
+    supervisor.active_streams = ()
+
+    disconnected_status = service.health_snapshot().pipelines[0]
+    assert disconnected_status.state is not PipelineState.READY
+
+    # A new connection alone is insufficient; a fresh quote is required.
+    supervisor.state = SimpleNamespace(value="SUBSCRIPTIONS_READY")
+    supervisor.active_streams = ("btcusdt@bookTicker",)
+
+    before_new_quote = service.health_snapshot().pipelines[0]
+    assert before_new_quote.state is not PipelineState.READY
+
+    new_event = make_spot_book_ticker_event("BTCUSDT", 3, 99.9)
+
+    assert await service._record_supervised_event(
+        "spot_book_ticker", new_event
+    ) is True
+
+    recovered_status = service.health_snapshot().pipelines[0]
+    assert recovered_status.state is PipelineState.READY
+    assert recovered_status.last_error is None
+    assert recovered_status.last_update_id == 3

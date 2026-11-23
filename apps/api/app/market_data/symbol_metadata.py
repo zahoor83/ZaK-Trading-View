@@ -101,25 +101,70 @@ def _string_list(value: object, field: str) -> tuple[str, ...]:
     return tuple(result)
 
 
-def _filter_types(value: object, field: str) -> tuple[str, ...]:
+def _freeze_filter_value(value: object, field: str) -> object:
+    """Recursively freeze JSON-compatible exchange filter metadata."""
+
+    if isinstance(value, Mapping):
+        frozen = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise MetadataValidationError(f"{field} contains a non-string key")
+            frozen[key] = _freeze_filter_value(item, f"{field}.{key}")
+        return MappingProxyType(frozen)
+
+    if isinstance(value, (list, tuple)):
+        return tuple(
+            _freeze_filter_value(item, f"{field}[{index}]")
+            for index, item in enumerate(value)
+        )
+
+    if value is None or type(value) in (str, bool, int):
+        return value
+
+    if type(value) is float and math.isfinite(value):
+        return value
+
+    raise MetadataValidationError(f"{field} contains an unsupported value")
+
+
+def _filter_records(
+    value: object,
+    field: str,
+) -> tuple[Mapping[str, object], ...]:
+    """Preserve all filter fields, including unknown provider filters."""
+
     if not isinstance(value, list):
         raise MetadataValidationError(f"{field} must be a list")
 
-    result: list[str] = []
+    records = []
+    seen = set()
+
     for index, item in enumerate(value):
         record = _mapping(item, f"{field}[{index}]")
         filter_type = _string(
             record.get("filterType"),
             f"{field}[{index}].filterType",
         )
-        result.append(filter_type)
 
-    if len(set(result)) != len(result):
-        raise MetadataValidationError(f"{field} contains duplicate filterType values")
+        if filter_type in seen:
+            raise MetadataValidationError(
+                f"{field} contains duplicate filterType values"
+            )
 
-    # Unknown filter types are preserved. This module does not interpret
-    # trading-filter arithmetic such as tickSize or stepSize.
-    return tuple(result)
+        seen.add(filter_type)
+        frozen = _freeze_filter_value(record, f"{field}[{index}]")
+        records.append(frozen)
+
+    return tuple(records)
+
+
+def _filter_types(value: object, field: str) -> tuple[str, ...]:
+    """Backward-compatible filter type extraction."""
+
+    return tuple(
+        record["filterType"]
+        for record in _filter_records(value, field)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,6 +183,7 @@ class SymbolMetadata:
     onboard_date: int | None = None
     price_precision: int | None = None
     quantity_precision: int | None = None
+    filters: tuple[Mapping[str, object], ...] = ()
 
     @property
     def is_active(self) -> bool:
@@ -272,7 +318,8 @@ def _parse_symbol_common(
         raise MetadataValidationError(f"{field} baseAsset and quoteAsset must differ")
 
     order_types = _string_list(record.get("orderTypes"), f"{field}.orderTypes")
-    filter_types = _filter_types(record.get("filters"), f"{field}.filters")
+    filter_records = _filter_records(record.get("filters"), f"{field}.filters")
+    filter_types = tuple(item["filterType"] for item in filter_records)
 
     if market == "spot":
         return SymbolMetadata(
@@ -283,6 +330,7 @@ def _parse_symbol_common(
             quote_asset=quote_asset,
             order_types=order_types,
             filter_types=filter_types,
+            filters=filter_records,
         )
 
     pair = _provider_identifier(record.get("pair"), f"{field}.pair")
@@ -325,6 +373,7 @@ def _parse_symbol_common(
         onboard_date=onboard_date,
         price_precision=price_precision,
         quantity_precision=quantity_precision,
+        filters=filter_records,
     )
 
 

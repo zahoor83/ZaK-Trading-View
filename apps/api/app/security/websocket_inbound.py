@@ -141,6 +141,27 @@ def _validate_trade(event: dict, symbol: str) -> None:
         raise InboundWebSocketViolation("Trade maker flags must be booleans.")
 
 
+def _validate_book_ticker(event: dict, symbol: str) -> None:
+    """Validate Binance Spot best-bid/ask update (no event timestamp)."""
+    required = {"u", "s", "b", "B", "a", "A"}
+    _exact_fields(event, required)
+
+    if _symbol(event["s"]) != symbol:
+        raise InboundWebSocketViolation("BookTicker symbol mismatch.")
+
+    update_id = _integer(event["u"], "u")
+    if update_id == 0:
+        raise InboundWebSocketViolation("BookTicker update ID must be positive.")
+
+    bid = _decimal(event["b"], "b")
+    _decimal(event["B"], "B")
+    ask = _decimal(event["a"], "a")
+    _decimal(event["A"], "A")
+
+    if bid > ask:
+        raise InboundWebSocketViolation("BookTicker bid cannot exceed ask.")
+
+
 def _validate_depth(event: dict, symbol: str) -> None:
     required = {"e", "E", "T", "s", "U", "u", "pu", "b", "a"}
     _exact_fields(event, required)
@@ -227,7 +248,7 @@ def _approved_streams(approved_request) -> tuple[str, ...]:
         if not isinstance(stream, str):
             raise InboundWebSocketViolation("Invalid approved stream.")
         if market == "spot":
-            valid = re.fullmatch(r"[a-z0-9]{2,30}@trade", stream)
+            valid = re.fullmatch(r"[a-z0-9]{2,30}@(trade|bookTicker)", stream)
         else:
             valid = re.fullmatch(
                 r"[a-z0-9]{2,30}@(depth|markPrice)", stream
@@ -308,7 +329,7 @@ def validate_public_websocket_inbound_message(
                 )
             for item in result:
                 supported = (
-                    re.fullmatch(r"[a-z0-9]{2,30}@trade", item)
+                    re.fullmatch(r"[a-z0-9]{2,30}@(trade|bookTicker)", item)
                     if market == "spot"
                     else re.fullmatch(
                         r"[a-z0-9]{2,30}@(depth|markPrice)", item
@@ -338,11 +359,15 @@ def validate_public_websocket_inbound_message(
     event_type = event.get("e")
     symbol = _symbol(event.get("s"))
 
-    event_stream_type = {
-        "trade": "trade",
-        "depthUpdate": "depth",
-        "markPriceUpdate": "markPrice",
-    }.get(event_type)
+    # Spot BookTicker has no "e" event-type field.
+    if market == "spot" and event_type is None:
+        event_stream_type = "bookTicker"
+    else:
+        event_stream_type = {
+            "trade": "trade",
+            "depthUpdate": "depth",
+            "markPriceUpdate": "markPrice",
+        }.get(event_type)
 
     matching = [
         candidate for candidate in streams
@@ -362,6 +387,8 @@ def validate_public_websocket_inbound_message(
 
     if market == "spot" and stream_type == "trade":
         _validate_trade(event, symbol)
+    elif market == "spot" and stream_type == "bookTicker":
+        _validate_book_ticker(event, symbol)
     elif market == "usdm_futures" and stream_type == "depth":
         _validate_depth(event, symbol)
     elif market == "usdm_futures" and stream_type == "markPrice":

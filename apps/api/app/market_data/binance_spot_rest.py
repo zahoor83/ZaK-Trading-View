@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
 from app.security.public_http import fetch_public_market_data
@@ -14,6 +15,7 @@ BASE_URL = "https://data-api.binance.vision"
 
 SERVER_TIME_PATH = "/api/v3/time"
 EXCHANGE_INFO_PATH = "/api/v3/exchangeInfo"
+BOOK_TICKER_PATH = "/api/v3/ticker/bookTicker"
 KLINES_PATH = "/api/v3/klines"
 
 DEFAULT_KLINE_LIMIT = 500
@@ -27,6 +29,12 @@ SUPPORTED_INTERVALS = frozenset({
 })
 
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]+$")
+_BOOK_TICKER_DECIMAL_PATTERN = re.compile(
+    r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$"
+)
+MAX_BOOK_TICKER_DECIMAL_LENGTH = 128
+MAX_BOOK_TICKER_DECIMAL_SCALE = 36
+MAX_BOOK_TICKER_DECIMAL_VALUE = Decimal("1e36")
 
 
 class MarketDataResponseError(ValueError):
@@ -67,6 +75,39 @@ def _validate_json_float(value: str) -> float:
 
 def _reject_json_constant(value: str):
     raise ValueError(f"Prohibited JSON constant: {value}")
+
+
+def _validate_book_ticker_decimal(value: object, name: str) -> Decimal:
+    """Parse a strictly formatted positive provider decimal string."""
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > MAX_BOOK_TICKER_DECIMAL_LENGTH
+        or not _BOOK_TICKER_DECIMAL_PATTERN.fullmatch(value)
+    ):
+        raise MarketDataResponseError(
+            f"Invalid Binance book-ticker {name}."
+        )
+
+    try:
+        parsed = Decimal(value)
+    except InvalidOperation as exc:
+        raise MarketDataResponseError(
+            f"Invalid Binance book-ticker {name}."
+        ) from exc
+
+    if (
+        not parsed.is_finite()
+        or parsed <= 0
+        or parsed >= MAX_BOOK_TICKER_DECIMAL_VALUE
+        or max(0, -parsed.as_tuple().exponent)
+        > MAX_BOOK_TICKER_DECIMAL_SCALE
+    ):
+        raise MarketDataResponseError(
+            f"Binance book-ticker {name} is outside permitted bounds."
+        )
+
+    return parsed
 
 
 def _reject_duplicate_keys(pairs):
@@ -115,6 +156,7 @@ class BinanceSpotRestClient:
         if path not in {
             SERVER_TIME_PATH,
             EXCHANGE_INFO_PATH,
+            BOOK_TICKER_PATH,
             KLINES_PATH,
         }:
             raise ValueError("Unapproved Spot endpoint.")
@@ -288,6 +330,55 @@ class BinanceSpotRestClient:
             )
 
         return payload
+
+    def get_book_ticker(self, symbol: str) -> dict:
+        """Fetch and validate the current Spot best bid/ask snapshot.
+
+        This response has no exchange event timestamp. It is a validated
+        REST snapshot only and must not independently authorize execution.
+        """
+        validated_symbol = _validate_symbol(symbol)
+        payload = self._request(
+            BOOK_TICKER_PATH,
+            [("symbol", validated_symbol)],
+        )
+
+        if not isinstance(payload, dict):
+            raise MarketDataResponseError(
+                "Unexpected Spot book-ticker response structure."
+            )
+
+        if payload.get("symbol") != validated_symbol:
+            raise MarketDataResponseError(
+                "Book-ticker response does not match requested symbol."
+            )
+
+        bid = _validate_book_ticker_decimal(
+            payload.get("bidPrice"), "bidPrice"
+        )
+        bid_qty = _validate_book_ticker_decimal(
+            payload.get("bidQty"), "bidQty"
+        )
+        ask = _validate_book_ticker_decimal(
+            payload.get("askPrice"), "askPrice"
+        )
+        ask_qty = _validate_book_ticker_decimal(
+            payload.get("askQty"), "askQty"
+        )
+
+        if bid > ask:
+            raise MarketDataResponseError(
+                "Spot book-ticker bid cannot exceed ask."
+            )
+
+        # Preserve provider decimal strings; never convert through float.
+        return {
+            "symbol": validated_symbol,
+            "bidPrice": payload["bidPrice"],
+            "bidQty": payload["bidQty"],
+            "askPrice": payload["askPrice"],
+            "askQty": payload["askQty"],
+        }
 
     def get_klines(
         self,

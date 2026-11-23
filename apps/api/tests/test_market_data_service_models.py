@@ -213,3 +213,7 @@ def test_models_are_immutable():
 def test_ready_requires_active_subscriptions():
     with pytest.raises(ValueError, match="verified active subscriptions"):
         make_ready_spot(active_streams=())
+
+def test_model_rejects_huge_integer_monotonic_timestamp():
+    with pytest.raises(ValueError, match="finite and non-negative"):
+        make_ready_spot(updated_at_monotonic=10**10000)

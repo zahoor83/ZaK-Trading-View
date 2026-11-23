@@ -6,7 +6,9 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+
+from app.security.internal_service_auth import get_internal_service_principal
 
 from app.market_data.api_models import (
     MarketDataHealthResponse,
@@ -20,7 +22,11 @@ from app.market_data.service_models import (
 )
 
 
-router = APIRouter(prefix="/api/v1/market-data", tags=["market-data"])
+router = APIRouter(
+    prefix="/api/v1/market-data",
+    tags=["market-data"],
+    dependencies=[Depends(get_internal_service_principal)],
+)
 _SAFE_ERROR_CODE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}$")
 
 

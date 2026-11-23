@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: dark;
   --bg: #0b0e14;
   --sidebar: #0e121a;
@@ -2011,4 +2011,74 @@ h1 {
   .market-chart-canvas {
     height: 300px;
   }
+}
+
+/* Authentication and session controls */
+.profile-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-email {
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-session form {
+  margin: 0;
+}
+
+.profile-button {
+  cursor: pointer;
+}
+
+.profile-button:hover {
+  border-color: #6f91bd;
+  background: #243b58;
+}
+
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: var(--background, #0b1421);
+}
+
+.login-panel {
+  width: min(100%, 440px);
+  padding: 36px;
+  border: 1px solid #263950;
+  border-radius: 16px;
+  background: #111e2e;
+  box-shadow: 0 24px 80px #00000035;
+}
+
+.login-panel h1 {
+  margin: 12px 0;
+}
+
+.login-panel form {
+  margin-top: 28px;
+}
+
+.login-submit {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #5278a7;
+  border-radius: 8px;
+  background: #24466d;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.login-submit:hover {
+  background: #2e5886;
 }

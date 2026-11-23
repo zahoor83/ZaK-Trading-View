@@ -304,6 +304,115 @@ class BinanceUsdMFuturesRestTests(unittest.TestCase):
                 with self.assertRaises(FuturesMarketDataResponseError):
                     self.client.get_exchange_info()
 
+    def valid_depth_snapshot(self):
+        return {
+            "lastUpdateId": 12345,
+            "E": 1700000000000,
+            "T": 1700000000001,
+            "bids": [["100.00", "2.5"], ["99.00", "1.0"]],
+            "asks": [["101.00", "3.0"], ["102.00", "4.0"]],
+        }
+
+    @patch("app.market_data.binance_usdm_futures_rest.fetch_public_market_data")
+    def test_depth_snapshot_query_and_validation(self, fetch):
+        payload = self.valid_depth_snapshot()
+        fetch.return_value = self.mock_response(payload)
+
+        result = self.client.get_depth_snapshot("BTCUSDT", 100)
+
+        self.assertEqual(result, payload)
+        self.assertEqual(
+            urlsplit(fetch.call_args.args[0]).path,
+            "/fapi/v1/depth",
+        )
+        query = parse_qs(urlsplit(fetch.call_args.args[0]).query)
+        self.assertEqual(query["symbol"], ["BTCUSDT"])
+        self.assertEqual(query["limit"], ["100"])
+
+    @patch("app.market_data.binance_usdm_futures_rest.fetch_public_market_data")
+    def test_depth_snapshot_default_limit(self, fetch):
+        fetch.return_value = self.mock_response(self.valid_depth_snapshot())
+
+        self.client.get_depth_snapshot("BTCUSDT")
+
+        query = parse_qs(urlsplit(fetch.call_args.args[0]).query)
+        self.assertEqual(query["limit"], ["500"])
+
+    @patch("app.market_data.binance_usdm_futures_rest.fetch_public_market_data")
+    def test_depth_snapshot_accepts_only_documented_limits(self, fetch):
+        fetch.return_value = self.mock_response(self.valid_depth_snapshot())
+
+        for limit in (5, 10, 20, 50, 100, 500, 1000):
+            with self.subTest(limit=limit):
+                self.client.get_depth_snapshot("BTCUSDT", limit)
+
+        self.assertEqual(fetch.call_count, 7)
+
+    def test_depth_snapshot_rejects_invalid_limits_before_request(self):
+        for limit in (0, 1, 4, 6, 200, 501, 1500, -1, True, False, 1.5, "100"):
+            with self.subTest(limit=limit):
+                with patch(
+                    "app.market_data.binance_usdm_futures_rest.fetch_public_market_data"
+                ) as fetch:
+                    with self.assertRaises(ValueError):
+                        self.client.get_depth_snapshot("BTCUSDT", limit)
+                    fetch.assert_not_called()
+
+    def test_depth_snapshot_rejects_invalid_symbols(self):
+        for symbol in ("btcusdt", "", "BTC/USDT", "BTC USDT", None, 123):
+            with self.subTest(symbol=symbol):
+                with self.assertRaises(ValueError):
+                    self.client.get_depth_snapshot(symbol)
+
+    @patch("app.market_data.binance_usdm_futures_rest.fetch_public_market_data")
+    def test_depth_snapshot_rejects_malformed_payloads(self, fetch):
+        valid = self.valid_depth_snapshot()
+        invalid_payloads = []
+
+        for field, value in (
+            ("lastUpdateId", True),
+            ("lastUpdateId", 0),
+            ("lastUpdateId", "123"),
+            ("E", True),
+            ("T", -1),
+            ("bids", {}),
+            ("asks", []),
+            ("bids", [["100", "1"], ["99", "1"], ["98", "1"], ["97", "1"],
+                      ["96", "1"], ["95", "1"]]),
+            ("bids", [["99", "1"], ["100", "1"]]),
+            ("asks", [["102", "1"], ["101", "1"]]),
+            ("bids", [["100", "1"], ["100.00", "2"]]),
+            ("bids", [["0", "1"]]),
+            ("bids", [["-1", "1"]]),
+            ("bids", [["100", "-1"]]),
+            ("bids", [["100", "NaN"]]),
+            ("bids", [["100", "1e2"]]),
+            ("bids", [[100, "1"]]),
+        ):
+            malformed = dict(valid)
+            malformed[field] = value
+            invalid_payloads.append(malformed)
+
+        crossed = dict(valid)
+        crossed["bids"] = [["101", "1"]]
+        crossed["asks"] = [["101", "1"]]
+        invalid_payloads.append(crossed)
+
+        for payload in invalid_payloads:
+            fetch.return_value = self.mock_response(payload)
+            with self.subTest(payload=payload):
+                with self.assertRaises(FuturesMarketDataResponseError):
+                    self.client.get_depth_snapshot("BTCUSDT", limit=5)
+
+    @patch("app.market_data.binance_usdm_futures_rest.fetch_public_market_data")
+    def test_depth_snapshot_rejects_non_object_response(self, fetch):
+        for payload in ([], None, "invalid"):
+            fetch.return_value = self.mock_response(payload)
+            with self.subTest(payload=payload):
+                with self.assertRaises(FuturesMarketDataResponseError):
+                    self.client.get_depth_snapshot("BTCUSDT")
+
+
 
 if __name__ == "__main__":
     unittest.main()

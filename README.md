@@ -160,6 +160,8 @@ Local Git history is not a substitute for independent backups. A successful back
 
 Each development Part has one consolidated Markdown report under `docs/reports/`.
 
+- Paper Trading Part 3 final acceptance: [PAPER_TRADING_PART3_FINAL_ACCEPTANCE.md](docs/reports/PAPER_TRADING_PART3_FINAL_ACCEPTANCE.md).
+
 Every Part must include its implementation record, actual test evidence, security audit, acceptance criteria and continuation snapshot.
 
 The next Part cannot begin until the current Part is verified and approved.

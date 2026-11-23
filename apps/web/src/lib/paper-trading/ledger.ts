@@ -497,7 +497,7 @@ export function createLedger(
 
 export function refreshPaperBalance(
   ledger: PaperLedger,
-  targetBalance: number = 10_000,
+  targetBalance: number = 1_000,
   refreshThreshold: number = 100,
 ): PaperLedger {
   assertLedger(ledger);

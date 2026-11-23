@@ -11,6 +11,7 @@ from app.market_data.freshness import FreshnessState
 
 
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{2,30}$")
+SPOT_BOOK_TICKER_MAX_RECEIVE_AGE_SECONDS = 1.0
 
 _EXPECTED_EVENT_TYPES = {
     "spot": "trade",
@@ -21,6 +22,7 @@ _EXPECTED_EVENT_TYPES = {
 
 class MarketDataGroup(str, Enum):
     SPOT = "spot"
+    SPOT_BOOK_TICKER = "spot_book_ticker"
     FUTURES_DEPTH = "futures_depth"
     FUTURES_MARK_PRICE = "futures_mark_price"
 
@@ -48,16 +50,18 @@ class MarketDataServiceState(str, Enum):
 
 
 def _validate_monotonic(value: object, field: str) -> float:
-    if (
-        isinstance(value, bool)
-        or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value < 0
-    ):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{field} must be finite and non-negative.")
 
-    return float(value)
+    try:
+        normalized = float(value)
+    except (OverflowError, ValueError):
+        raise ValueError(f"{field} must be finite and non-negative.") from None
 
+    if not math.isfinite(normalized) or normalized < 0:
+        raise ValueError(f"{field} must be finite and non-negative.")
+
+    return normalized
 
 def _expected_streams(
     group: MarketDataGroup,
@@ -65,11 +69,28 @@ def _expected_streams(
 ) -> tuple[str, ...]:
     suffix = {
         MarketDataGroup.SPOT: "@trade",
+        MarketDataGroup.SPOT_BOOK_TICKER: "@bookTicker",
         MarketDataGroup.FUTURES_DEPTH: "@depth",
         MarketDataGroup.FUTURES_MARK_PRICE: "@markPrice",
     }[group]
 
     return tuple(sorted(f"{symbol.lower()}{suffix}" for symbol in symbols))
+
+
+@dataclass(frozen=True, slots=True)
+class SpotBookTickerQuoteStatus:
+    """Per-symbol BookTicker receive evidence; no provider timestamp."""
+
+    symbol: str
+    update_id: int
+    received_at_monotonic: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.symbol, str) or not _SYMBOL_PATTERN.fullmatch(self.symbol):
+            raise ValueError("Invalid BookTicker health symbol.")
+        if isinstance(self.update_id, bool) or not isinstance(self.update_id, int) or self.update_id <= 0:
+            raise ValueError("Invalid BookTicker health update ID.")
+        _validate_monotonic(self.received_at_monotonic, "BookTicker receive time")
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,7 +106,9 @@ class MarketDataPipelineStatus:
     book_synchronized: bool = False
     last_event_type: str | None = None
     last_event_timestamp_ms: int | None = None
+    last_update_id: int | None = None
     last_event_received_at_monotonic: float | None = None
+    book_ticker_quotes: tuple[SpotBookTickerQuoteStatus, ...] = ()
     last_freshness_state: FreshnessState | None = None
     last_error: str | None = None
     updated_at_monotonic: float = 0.0
@@ -102,6 +125,11 @@ class MarketDataPipelineStatus:
 
         if not isinstance(self.active_streams, tuple):
             raise TypeError("active_streams must be a tuple.")
+
+        if not isinstance(self.book_ticker_quotes, tuple):
+            raise TypeError("book_ticker_quotes must be a tuple.")
+        if any(not isinstance(item, SpotBookTickerQuoteStatus) for item in self.book_ticker_quotes):
+            raise TypeError("book_ticker_quotes must contain quote status objects.")
 
         if len(self.symbols) != len(set(self.symbols)):
             raise ValueError("Duplicate configured symbols are prohibited.")
@@ -140,37 +168,103 @@ class MarketDataPipelineStatus:
         ):
             raise ValueError("Only Futures Depth can have a synchronized book.")
 
-        event_fields = (
-            self.last_event_type,
-            self.last_event_timestamp_ms,
-            self.last_event_received_at_monotonic,
-        )
-
-        if any(value is not None for value in event_fields):
-            if any(value is None for value in event_fields):
-                raise ValueError("Event metadata must be supplied together.")
-
-            expected_type = _EXPECTED_EVENT_TYPES[self.group]
-            if self.last_event_type != expected_type:
-                raise ValueError("Event type does not match the pipeline group.")
+        if self.group == MarketDataGroup.SPOT_BOOK_TICKER:
+            if len({item.symbol for item in self.book_ticker_quotes}) != len(self.book_ticker_quotes):
+                raise ValueError("Duplicate BookTicker health symbols are prohibited.")
+            if any(item.symbol not in self.symbols for item in self.book_ticker_quotes):
+                raise ValueError("BookTicker health evidence contains an unconfigured symbol.")
+            if any(item.received_at_monotonic > self.updated_at_monotonic for item in self.book_ticker_quotes):
+                raise ValueError("BookTicker receive time cannot exceed status update time.")
+            if self.book_ticker_quotes and (
+                self.last_update_id is None or self.last_event_received_at_monotonic is None
+            ):
+                raise ValueError("BookTicker summary fields are required with per-symbol evidence.")
+            if self.book_ticker_quotes and self.last_update_id is not None:
+                latest_quote = max(self.book_ticker_quotes, key=lambda item: item.received_at_monotonic)
+                if (
+                    self.last_update_id != latest_quote.update_id
+                    or self.last_event_received_at_monotonic != latest_quote.received_at_monotonic
+                ):
+                    raise ValueError("BookTicker summary does not match the latest symbol quote.")
 
             if (
-                isinstance(self.last_event_timestamp_ms, bool)
-                or not isinstance(self.last_event_timestamp_ms, int)
-                or self.last_event_timestamp_ms <= 0
+                self.last_event_type is not None
+                or self.last_event_timestamp_ms is not None
+                or self.last_freshness_state is not None
             ):
-                raise ValueError("Invalid event timestamp.")
+                raise ValueError(
+                    "Spot BookTicker cannot claim a provider event type, "
+                    "event timestamp, or trade freshness result."
+                )
 
-            received = _validate_monotonic(
-                self.last_event_received_at_monotonic,
-                "last_event_received_at_monotonic",
+            if self.last_update_id is not None:
+                if (
+                    isinstance(self.last_update_id, bool)
+                    or not isinstance(self.last_update_id, int)
+                    or self.last_update_id <= 0
+                ):
+                    raise ValueError("Invalid Spot BookTicker update ID.")
+
+            if (
+                (self.last_update_id is None)
+                != (self.last_event_received_at_monotonic is None)
+            ):
+                raise ValueError(
+                    "BookTicker update ID and receive time must be supplied together."
+                )
+
+            received = (
+                None
+                if self.last_event_received_at_monotonic is None
+                else _validate_monotonic(
+                    self.last_event_received_at_monotonic,
+                    "last_event_received_at_monotonic",
+                )
             )
         else:
-            received = None
+            if self.book_ticker_quotes:
+                raise ValueError("Per-symbol quote evidence is only valid for Spot BookTicker.")
+            if self.last_update_id is not None:
+                raise ValueError(
+                    "Update IDs are only valid for Spot BookTicker."
+                )
 
-        if self.group == MarketDataGroup.FUTURES_DEPTH:
+            event_fields = (
+                self.last_event_type,
+                self.last_event_timestamp_ms,
+                self.last_event_received_at_monotonic,
+            )
+
+            if any(value is not None for value in event_fields):
+                if any(value is None for value in event_fields):
+                    raise ValueError("Event metadata must be supplied together.")
+
+                expected_type = _EXPECTED_EVENT_TYPES[self.group]
+                if self.last_event_type != expected_type:
+                    raise ValueError("Event type does not match the pipeline group.")
+
+                if (
+                    isinstance(self.last_event_timestamp_ms, bool)
+                    or not isinstance(self.last_event_timestamp_ms, int)
+                    or self.last_event_timestamp_ms <= 0
+                ):
+                    raise ValueError("Invalid event timestamp.")
+
+                received = _validate_monotonic(
+                    self.last_event_received_at_monotonic,
+                    "last_event_received_at_monotonic",
+                )
+            else:
+                received = None
+
+        if self.group in (
+            MarketDataGroup.FUTURES_DEPTH,
+            MarketDataGroup.SPOT_BOOK_TICKER,
+        ):
             if self.last_freshness_state is not None:
-                raise ValueError("Depth events do not use trade freshness validation.")
+                raise ValueError(
+                    "Depth and Spot BookTicker do not use trade freshness validation."
+                )
         elif self.last_freshness_state is not None and not isinstance(
             self.last_freshness_state, FreshnessState
         ):
@@ -196,6 +290,23 @@ class MarketDataPipelineStatus:
             raise ValueError("Enabled pipeline states require configured symbols.")
 
         if self.state == PipelineState.READY:
+            if self.group == MarketDataGroup.SPOT_BOOK_TICKER:
+                if not self.active_streams:
+                    raise ValueError("READY requires verified active subscriptions.")
+                if not self.metadata_fresh:
+                    raise ValueError("READY requires fresh symbol metadata.")
+                if self.clock_synchronized:
+                    raise ValueError("Spot BookTicker must not claim exchange-clock synchronization.")
+                if self.book_synchronized:
+                    raise ValueError("Spot BookTicker cannot claim synchronized depth.")
+                if set(item.symbol for item in self.book_ticker_quotes) != set(self.symbols):
+                    raise ValueError("READY requires fresh quote evidence for every configured symbol.")
+                for item in self.book_ticker_quotes:
+                    age = self.updated_at_monotonic - item.received_at_monotonic
+                    if age < 0 or age > SPOT_BOOK_TICKER_MAX_RECEIVE_AGE_SECONDS:
+                        raise ValueError("READY requires every BookTicker quote within the receive-age limit.")
+                return
+
             if not self.active_streams:
                 raise ValueError("READY requires verified active subscriptions.")
             if not self.clock_synchronized:

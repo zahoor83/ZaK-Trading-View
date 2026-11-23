@@ -393,3 +393,143 @@ The commit/push instruction in the historical 2026-11-03 snapshot is superseded 
 No commit or push is authorized unless the user explicitly requests it. The current Task 14 scope and continuation instructions in the 2026-11-11 addendum take precedence.
 
 **End of supersession clarification.**
+
+---
+
+## 8. Current Continuation Snapshot — OIDC/HMAC Development Acceptance
+
+- **Snapshot date:** 2026-11-15
+- **Project:** ZaK Trading View
+- **Project root:** `D:\ZaK Trading View`
+
+### 8.1 Scope and historical-record handling
+
+This addendum records the later OIDC browser-authentication and internal-service
+authentication work evidenced by the canonical Section 4 security audit and
+Section 5 final acceptance report.
+
+Historical Part 1, Part 2, Part 3 and Task 1–14 records above remain preserved.
+Their historical dates and acceptance boundaries are not rewritten by this
+snapshot.
+
+This addendum does not claim that historical Part 3 limitations have been
+removed or that production deployment has been approved.
+
+### 8.2 Section 4 — OIDC implementation status
+
+The current development implementation records the following phases as
+complete:
+
+| ID | Phase | Status |
+|---|---|---|
+| 1F-D | OIDC scope and documentation verification | COMPLETE |
+| 1G | Browser login initiation | COMPLETE |
+| 1H | OIDC callback and authorization-code exchange | COMPLETE |
+| 1I | Browser session cookie issuance and secure handling | COMPLETE |
+| 1J | Browser logout and session termination | COMPLETE |
+| 1K | CSRF protection and exact Origin validation | COMPLETE |
+| 1L | Next.js BFF to FastAPI private service authentication | COMPLETE — provider-neutral development implementation |
+| 1M | Browser-facing session validation and revocation | COMPLETE |
+
+Section 1L's final development regression and documentation checkpoint,
+1L-16, is recorded as COMPLETE in the canonical security audit, Section 12,
+and the Section 5 acceptance report, Section 10.
+
+### 8.3 Section 5 — testing and acceptance status
+
+| ID | Phase | Status |
+|---|---|---|
+| 2A | Full browser authentication flow | COMPLETE — 25/25 historical evidence |
+| 2B | Cookie security and session lifecycle | COMPLETE |
+| 2C | CSRF, Origin and open-redirect security | COMPLETE |
+| 2D | Internal service authentication/authorization regression | COMPLETE — 79/79 |
+| 2E | OIDC failure, replay, expiry and concurrency edges | COMPLETE — 91/91 |
+| 2F | Full regression and PostgreSQL integration | COMPLETE — development scope |
+| 2G | Security audit and final acceptance documentation | COMPLETE — development scope |
+
+Latest user-provided regression evidence recorded in the canonical reports:
+
+| Verification | Result |
+|---|---|
+| Non-PostgreSQL backend regression | 1,210 passed; 466 subtests passed |
+| Dedicated PostgreSQL integration | 13 passed |
+| HMAC TypeScript transport tests | 30 passed |
+| Frontend TypeScript typecheck | Passed |
+| Next.js production build | Passed |
+| OIDC browser E2E | 29 passed |
+
+The PostgreSQL runner verified the dedicated test database identity
+`zak_oidc_test_app|zak_oidc_test|55432|180006`, did not run migrations,
+and restored process environment variables.
+
+The Playwright `react-server` condition was used for the test-runner process
+to support tests importing Next.js `server-only` modules. Production
+`server-only` protections were retained.
+
+### 8.4 Production limitations — unchanged
+
+The development acceptance does not establish production readiness.
+
+The following remain unverified or pending deployment-specific work:
+
+- Selection and implementation of the real production transport adapter.
+- Production secret-manager integration and real key provisioning/rotation.
+- Live authenticated production Next.js-to-FastAPI request.
+- Production identity-provider connectivity.
+- Deployed network, TLS and workload identity boundary verification.
+- Independent production deployment security review.
+
+Production security certification is NOT CLAIMED.
+Production OIDC enablement remains NOT APPROVED.
+
+### 8.5 Paper Trading — next audit boundary
+
+The MVP scope continues to require independent persisted virtual Spot and
+Futures portfolios with 1,000 USDT each, confirmations, transaction ledger
+and session history.
+
+The existence of source files or tests alone does not establish complete
+Paper Trading acceptance.
+
+The fixed nine-step Paper Trading checklist remains subject to fresh,
+evidence-based verification:
+
+1. Existing Implementation Audit.
+2. Architecture & Data Contract.
+3. Independent Portfolio Accounting.
+4. Durable Storage & Refresh Persistence.
+5. Portfolio Reset & Session History.
+6. Paper-Only Execution Boundary.
+7. Frontend Integration.
+8. Regression & Security Tests.
+9. Documentation & Acceptance.
+
+No item in this checklist is declared complete by this continuation addendum.
+
+The unresolved decisions in `docs\decisions\OPEN_DECISIONS.md`, including
+Futures leverage, margin mode, funding, liquidation, mark price, fees,
+slippage and Spot SHORT semantics, must not be silently treated as approved.
+
+### 8.6 Repository and change-control boundary
+
+This addendum records documentation status only. It does not claim a current
+Git branch, HEAD, remote synchronization state, clean working tree, commit
+or push.
+
+No Git operation, source-code modification, database migration, schema
+change, firewall change or production deployment is authorized by this
+documentation update.
+
+Future implementation work must preserve the evidence-first workflow:
+inspect before modifying, use narrow changes, retain backups, run relevant
+tests, report actual output and document limitations.
+
+**Current OIDC/HMAC development status: COMPLETE.**
+
+**Production OIDC status: NOT APPROVED.**
+
+**Paper Trading acceptance: PENDING fresh verification.**
+
+---
+
+**End of 2026-11-15 OIDC/HMAC Continuation Snapshot.**

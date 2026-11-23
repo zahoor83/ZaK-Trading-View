@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from decimal import Decimal, InvalidOperation
 from urllib.parse import urlencode
 
 from app.security.public_http import fetch_public_market_data
@@ -15,6 +16,10 @@ BASE_URL = "https://fapi.binance.com"
 SERVER_TIME_PATH = "/fapi/v1/time"
 EXCHANGE_INFO_PATH = "/fapi/v1/exchangeInfo"
 KLINES_PATH = "/fapi/v1/klines"
+DEPTH_PATH = "/fapi/v1/depth"
+
+DEFAULT_DEPTH_LIMIT = 500
+SUPPORTED_DEPTH_LIMITS = frozenset({5, 10, 20, 50, 100, 500, 1000})
 
 DEFAULT_KLINE_LIMIT = 500
 MAX_KLINE_LIMIT = 1500
@@ -134,6 +139,7 @@ class BinanceUsdMFuturesRestClient:
             SERVER_TIME_PATH,
             EXCHANGE_INFO_PATH,
             KLINES_PATH,
+            DEPTH_PATH,
         }:
             raise ValueError("Unapproved USD-M Futures endpoint.")
 
@@ -350,6 +356,130 @@ class BinanceUsdMFuturesRestClient:
                 raise FuturesMarketDataResponseError(
                     "Invalid Futures symbol filters."
                 )
+
+        return payload
+
+    def get_depth_snapshot(
+        self,
+        symbol: str,
+        limit: int = DEFAULT_DEPTH_LIMIT,
+    ) -> dict:
+        """Fetch and strictly validate one USD-M Futures order-book snapshot."""
+        validated_symbol = _validate_symbol(symbol)
+
+        if (
+            isinstance(limit, bool)
+            or not isinstance(limit, int)
+            or limit not in SUPPORTED_DEPTH_LIMITS
+        ):
+            raise ValueError("Unsupported USD-M Futures depth limit.")
+
+        payload = self._request(
+            DEPTH_PATH,
+            [("symbol", validated_symbol), ("limit", limit)],
+        )
+
+        if not isinstance(payload, dict):
+            raise FuturesMarketDataResponseError(
+                "Unexpected Futures depth snapshot structure."
+            )
+
+        last_update_id = payload.get("lastUpdateId")
+        event_time = payload.get("E")
+        transaction_time = payload.get("T")
+        bids = payload.get("bids")
+        asks = payload.get("asks")
+
+        if (
+            isinstance(last_update_id, bool)
+            or not isinstance(last_update_id, int)
+            or last_update_id <= 0
+        ):
+            raise FuturesMarketDataResponseError(
+                "Invalid Futures depth lastUpdateId."
+            )
+
+        if not _nonnegative_int(event_time) or not _nonnegative_int(transaction_time):
+            raise FuturesMarketDataResponseError(
+                "Invalid Futures depth timestamps."
+            )
+
+        def validate_levels(levels, side):
+            if (
+                not isinstance(levels, list)
+                or not levels
+                or len(levels) > limit
+            ):
+                raise FuturesMarketDataResponseError(
+                    f"Invalid Futures {side} depth levels collection."
+                )
+
+            parsed = []
+            seen_prices = set()
+
+            for level in levels:
+                if (
+                    not isinstance(level, list)
+                    or len(level) != 2
+                    or not all(isinstance(value, str) for value in level)
+                ):
+                    raise FuturesMarketDataResponseError(
+                        f"Invalid Futures {side} depth level."
+                    )
+
+                price_text, quantity_text = level
+                decimal_pattern = r"^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$"
+
+                if (
+                    not re.fullmatch(decimal_pattern, price_text)
+                    or not re.fullmatch(decimal_pattern, quantity_text)
+                ):
+                    raise FuturesMarketDataResponseError(
+                        f"Invalid Futures {side} depth decimal."
+                    )
+
+                try:
+                    price = Decimal(price_text)
+                    quantity = Decimal(quantity_text)
+                except InvalidOperation as exc:
+                    raise FuturesMarketDataResponseError(
+                        f"Invalid Futures {side} depth decimal."
+                    ) from exc
+
+                if (
+                    not price.is_finite()
+                    or not quantity.is_finite()
+                    or price <= 0
+                    or quantity < 0
+                ):
+                    raise FuturesMarketDataResponseError(
+                        f"Invalid Futures {side} depth price or quantity."
+                    )
+
+                if price in seen_prices:
+                    raise FuturesMarketDataResponseError(
+                        f"Duplicate Futures {side} depth price level."
+                    )
+
+                seen_prices.add(price)
+                parsed.append((price, quantity))
+
+            prices = [item[0] for item in parsed]
+            expected = sorted(prices, reverse=(side == "bids"))
+            if prices != expected:
+                raise FuturesMarketDataResponseError(
+                    f"Unsorted Futures {side} depth levels."
+                )
+
+            return parsed
+
+        parsed_bids = validate_levels(bids, "bids")
+        parsed_asks = validate_levels(asks, "asks")
+
+        if parsed_bids[0][0] >= parsed_asks[0][0]:
+            raise FuturesMarketDataResponseError(
+                "Crossed or locked Futures depth snapshot."
+            )
 
         return payload
 

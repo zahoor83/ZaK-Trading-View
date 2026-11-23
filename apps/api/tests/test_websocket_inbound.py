@@ -11,6 +11,18 @@ from app.security.websocket_inbound import (
 SPOT = SimpleNamespace(market="spot", streams=("btcusdt@trade",))
 DEPTH = SimpleNamespace(market="usdm_futures", streams=("btcusdt@depth",))
 MARK = SimpleNamespace(market="usdm_futures", streams=("btcusdt@markPrice",))
+SPOT_BOOK = SimpleNamespace(market="spot", streams=("btcusdt@bookTicker",))
+
+
+def book_ticker_event():
+    return {
+        "u": 123456789,
+        "s": "BTCUSDT",
+        "b": "99999.90",
+        "B": "1.250",
+        "a": "100000.00",
+        "A": "0.850",
+    }
 
 
 def trade_event():
@@ -331,6 +343,107 @@ class InboundWebSocketTests(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             result.payload["msg"] = "changed"
+
+    def test_accepts_spot_book_ticker(self):
+        result = validate_public_websocket_inbound_message(
+            json.dumps(book_ticker_event()), SPOT_BOOK
+        )
+        self.assertEqual(result.kind, "event")
+        self.assertIsNone(result.event_type)
+        self.assertEqual(result.stream, "btcusdt@bookTicker")
+        self.assertEqual(result.symbol, "BTCUSDT")
+        self.assertEqual(result.payload["u"], 123456789)
+
+    def test_accepts_combined_spot_book_ticker(self):
+        payload = {
+            "stream": "btcusdt@bookTicker",
+            "data": book_ticker_event(),
+        }
+        result = validate_public_websocket_inbound_message(
+            json.dumps(payload), SPOT_BOOK
+        )
+        self.assertEqual(result.stream, "btcusdt@bookTicker")
+
+    def test_accepts_book_ticker_subscription_acknowledgement(self):
+        result = validate_public_websocket_inbound_message(
+            '{"result":["btcusdt@bookTicker"],"id":9}', SPOT_BOOK
+        )
+        self.assertEqual(result.kind, "acknowledgement")
+
+    def test_rejects_invalid_book_ticker_update_id(self):
+        for value in (0, -1, True, 1.5, "123"):
+            with self.subTest(value=value):
+                event = book_ticker_event()
+                event["u"] = value
+                with self.assertRaises(InboundWebSocketViolation):
+                    validate_public_websocket_inbound_message(
+                        json.dumps(event), SPOT_BOOK
+                    )
+
+    def test_rejects_invalid_book_ticker_decimal_fields(self):
+        for field in ("b", "B", "a", "A"):
+            for value in ("NaN", "Infinity", "-1", "0", 123, True):
+                with self.subTest(field=field, value=value):
+                    event = book_ticker_event()
+                    event[field] = value
+                    with self.assertRaises(InboundWebSocketViolation):
+                        validate_public_websocket_inbound_message(
+                            json.dumps(event), SPOT_BOOK
+                        )
+
+    def test_rejects_inverted_book_ticker_market(self):
+        event = book_ticker_event()
+        event["b"] = "100000.10"
+        with self.assertRaises(InboundWebSocketViolation):
+            validate_public_websocket_inbound_message(
+                json.dumps(event), SPOT_BOOK
+            )
+
+    def test_rejects_book_ticker_symbol_mismatch(self):
+        event = book_ticker_event()
+        event["s"] = "ETHUSDT"
+        with self.assertRaises(InboundWebSocketViolation):
+            validate_public_websocket_inbound_message(
+                json.dumps(event), SPOT_BOOK
+            )
+
+    def test_rejects_missing_or_unexpected_book_ticker_fields(self):
+        missing = book_ticker_event()
+        del missing["A"]
+        unexpected = book_ticker_event()
+        unexpected["E"] = 1700000000000
+        for event in (missing, unexpected):
+            with self.subTest(event=event):
+                with self.assertRaises(InboundWebSocketViolation):
+                    validate_public_websocket_inbound_message(
+                        json.dumps(event), SPOT_BOOK
+                    )
+
+    def test_rejects_unapproved_book_ticker_combined_stream(self):
+        payload = {
+            "stream": "ethusdt@bookTicker",
+            "data": book_ticker_event(),
+        }
+        with self.assertRaises(InboundWebSocketViolation):
+            validate_public_websocket_inbound_message(
+                json.dumps(payload), SPOT_BOOK
+            )
+
+    def test_book_ticker_payload_is_immutable(self):
+        result = validate_public_websocket_inbound_message(
+            json.dumps(book_ticker_event()), SPOT_BOOK
+        )
+        with self.assertRaises(TypeError):
+            result.payload["s"] = "ETHUSDT"
+
+    def test_book_ticker_does_not_accept_trade_event_shape(self):
+        event = book_ticker_event()
+        event["e"] = "bookTicker"
+        with self.assertRaises(InboundWebSocketViolation):
+            validate_public_websocket_inbound_message(
+                json.dumps(event), SPOT_BOOK
+            )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

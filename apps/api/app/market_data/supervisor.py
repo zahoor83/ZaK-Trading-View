@@ -6,6 +6,7 @@ import asyncio
 import inspect
 import math
 import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -54,6 +55,11 @@ class MarketDataWebSocketSupervisor:
 
     _GROUPS = {
         "spot": ("spot", "spot_websocket_url", "trade"),
+        "spot_book_ticker": (
+            "spot",
+            "spot_book_ticker_websocket_url",
+            None,
+        ),
         "futures_depth": (
             "usdm_futures",
             "futures_depth_websocket_url",
@@ -74,6 +80,7 @@ class MarketDataWebSocketSupervisor:
         freshness_validator: MarketDataFreshnessValidator | None = None,
         on_event: EventCallback | None = None,
         on_depth_event: EventCallback | None = None,
+        on_connection_lost: Callable[[], Any] | None = None,
         connector: Callable[[str], Any] | None = None,
         reconnect_policy: ReconnectPolicy | None = None,
         sleep=asyncio.sleep,
@@ -95,14 +102,14 @@ class MarketDataWebSocketSupervisor:
         self._group = group
         self._market = market
         self._expected_event_type = expected_event_type
+        stream_suffix = {
+            "spot": "@trade",
+            "spot_book_ticker": "@bookTicker",
+            "futures_depth": "@depth",
+            "futures_mark_price": "@markPrice",
+        }[group]
         self._streams = tuple(
-            f"{symbol.lower()}@trade"
-            if group == "spot"
-            else (
-                f"{symbol.lower()}@depth"
-                if group == "futures_depth"
-                else f"{symbol.lower()}@markPrice"
-            )
+            f"{symbol.lower()}{stream_suffix}"
             for symbol in streams_by_group[group]
         )
 
@@ -125,11 +132,11 @@ class MarketDataWebSocketSupervisor:
                 "Generated endpoint does not match the configured stream group."
             )
 
-        if group != "futures_depth" and not isinstance(
+        if group not in ("futures_depth", "spot_book_ticker") and not isinstance(
             freshness_validator, MarketDataFreshnessValidator
         ):
             raise TypeError(
-                "A freshness validator is required for trade and mark-price groups."
+                "A freshness validator is required for timestamped market-data groups."
             )
 
         if on_event is not None and not callable(on_event):
@@ -138,12 +145,16 @@ class MarketDataWebSocketSupervisor:
         if on_depth_event is not None and not callable(on_depth_event):
             raise TypeError("on_depth_event must be callable.")
 
+        if on_connection_lost is not None and not callable(on_connection_lost):
+            raise TypeError("on_connection_lost must be callable.")
+
         if not callable(monotonic):
             raise TypeError("monotonic must be callable.")
 
         self._freshness_validator = freshness_validator
         self._on_event = on_event
         self._on_depth_event = on_depth_event
+        self._on_connection_lost = on_connection_lost
         self._monotonic = monotonic
         self._connector = connector or connect_public_market_data_websocket
 
@@ -196,6 +207,16 @@ class MarketDataWebSocketSupervisor:
             return
 
         result = callback(event)
+        if inspect.isawaitable(result):
+            await result
+
+    async def _notify_connection_lost(self) -> None:
+        """Notify the owner that cached data from this connection is invalid."""
+        callback = self._on_connection_lost
+        if callback is None:
+            return
+
+        result = callback()
         if inspect.isawaitable(result):
             await result
 
@@ -267,6 +288,37 @@ class MarketDataWebSocketSupervisor:
             await self._invoke(self._on_depth_event, event)
             return
 
+        if self._group == "spot_book_ticker":
+            payload = message.payload
+            update_id = payload.get("u") if isinstance(payload, Mapping) else None
+
+            if (
+                not isinstance(payload, Mapping)
+                or payload.get("s") != message.symbol
+                or isinstance(update_id, bool)
+                or not isinstance(update_id, int)
+                or update_id <= 0
+                or any(
+                    key not in payload
+                    for key in ("b", "B", "a", "A")
+                )
+            ):
+                raise MarketDataSupervisorError(
+                    "Validated Spot BookTicker payload is incomplete or invalid."
+                )
+
+            # Binance Spot BookTicker has no provider event timestamp.
+            # Never synthesize E or pass this event through the exchange-clock
+            # freshness validator.
+            event = SupervisedMarketDataEvent(
+                message=message,
+                received_at_monotonic=float(received_at_monotonic),
+                freshness=None,
+                book_synchronized=False,
+            )
+            await self._invoke(self._on_event, event)
+            return
+
         timestamp = message.payload.get("E")
         freshness = self._freshness_validator.validate_event(
             message.event_type,
@@ -308,6 +360,7 @@ class MarketDataWebSocketSupervisor:
                     # Identity check must happen before recovery. Otherwise
                     # recover() could return the same dead ready client.
                     await self._manager.mark_disconnected(client)
+                    await self._notify_connection_lost()
 
                     if self._stop_requested:
                         break
@@ -321,6 +374,7 @@ class MarketDataWebSocketSupervisor:
                     await self._dispatch(raw_message, client, received_at)
                 except (InboundWebSocketViolation, TypeError, ValueError) as exc:
                     await self._manager.mark_disconnected(client)
+                    await self._notify_connection_lost()
                     await self._manager.shutdown()
                     self._stop_requested = True
                     raise MarketDataSupervisorError(
@@ -328,6 +382,7 @@ class MarketDataWebSocketSupervisor:
                     ) from exc
                 except MarketDataSupervisorError:
                     await self._manager.mark_disconnected(client)
+                    await self._notify_connection_lost()
                     await self._manager.shutdown()
                     self._stop_requested = True
                     raise

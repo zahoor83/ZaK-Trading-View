@@ -63,7 +63,7 @@ export interface LedgerSummary {
   valuationStatus: "UNAVAILABLE_WITHOUT_VERIFIED_MARK_PRICE";
 }
 
-export const DEFAULT_STARTING_CAPITAL = 10_000;
+export const DEFAULT_STARTING_CAPITAL = 1_000;
 export const DEFAULT_FEE_RATE = 0.001;
 export const MAX_POSITIONS = 200;
 export const MAX_LEVERAGE = 20;

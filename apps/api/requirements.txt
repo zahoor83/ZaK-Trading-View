@@ -1,3 +1,13 @@
 fastapi==0.141.1
 uvicorn==0.52.4
 websockets==17.0.1
+# Database foundation
+SQLAlchemy==2.0.52
+asyncpg==0.31.0
+alembic==1.19.1
+python-dotenv==1.2.1
+# Authentication / OIDC
+httpx==0.28.1
+Authlib==1.9.5
+joserfc==1.8.0
+cryptography==50.0.2

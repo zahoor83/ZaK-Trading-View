@@ -10,6 +10,7 @@ def test_empty_configuration_is_disabled():
     assert config.is_enabled is False
     assert config.configured_groups == ()
     assert config.spot_websocket_url is None
+    assert config.spot_book_ticker_websocket_url is None
     assert config.futures_depth_websocket_url is None
     assert config.futures_mark_price_websocket_url is None
 
@@ -68,6 +69,7 @@ def test_same_symbol_can_be_configured_for_separate_futures_groups():
     "field",
     [
         "spot_symbols",
+        "spot_book_ticker_symbols",
         "futures_depth_symbols",
         "futures_mark_price_symbols",
     ],
@@ -92,6 +94,7 @@ def test_invalid_symbol_configuration_is_rejected(field, value):
     "field",
     [
         "spot_symbols",
+        "spot_book_ticker_symbols",
         "futures_depth_symbols",
         "futures_mark_price_symbols",
     ],
@@ -125,3 +128,37 @@ def test_configured_groups_include_only_nonempty_groups():
         ("spot", ("BTCUSDT",)),
         ("futures_mark_price", ("ETHUSDT",)),
     )
+
+def test_spot_book_ticker_configuration_builds_approved_url():
+    config = MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT", "ETHUSDT"))
+    assert config.is_enabled is True
+    approved = validate_public_market_data_websocket_url(
+        config.spot_book_ticker_websocket_url
+    )
+    assert approved.market == "spot"
+    assert approved.host == "data-stream.binance.vision"
+    assert approved.path == "/stream"
+    assert approved.streams == (
+        "btcusdt@bookTicker",
+        "ethusdt@bookTicker",
+    )
+
+
+def test_spot_trade_and_book_ticker_are_separate_groups():
+    config = MarketDataConfig(
+        spot_symbols=("BTCUSDT",),
+        spot_book_ticker_symbols=("BTCUSDT",),
+        futures_depth_symbols=("ETHUSDT",),
+    )
+    assert config.configured_groups == (
+        ("spot", ("BTCUSDT",)),
+        ("spot_book_ticker", ("BTCUSDT",)),
+        ("futures_depth", ("ETHUSDT",)),
+    )
+    assert config.spot_websocket_url != config.spot_book_ticker_websocket_url
+
+
+def test_book_ticker_stream_limit_is_enforced():
+    symbols = tuple(f"COIN{i:04d}" for i in range(1025))
+    with pytest.raises(ValueError):
+        MarketDataConfig(spot_book_ticker_symbols=symbols)

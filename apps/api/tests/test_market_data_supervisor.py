@@ -83,6 +83,7 @@ def make_message(
     stream="btcusdt@trade",
     event_type="trade",
     timestamp=1_000_000,
+    payload=None,
 ):
     return ValidatedInboundMessage(
         kind="event",
@@ -90,7 +91,9 @@ def make_message(
         stream=stream,
         event_type=event_type,
         symbol="BTCUSDT",
-        payload=MappingProxyType({"E": timestamp}),
+        payload=MappingProxyType(
+            {"E": timestamp} if payload is None else dict(payload)
+        ),
     )
 
 
@@ -99,6 +102,7 @@ def make_supervisor(
     group="spot",
     callback=None,
     depth_callback=None,
+    connection_lost=None,
     freshness=None,
     connector=None,
     policy=None,
@@ -107,9 +111,13 @@ def make_supervisor(
         MarketDataConfig(spot_symbols=("BTCUSDT",))
         if group == "spot"
         else (
-            MarketDataConfig(futures_depth_symbols=("BTCUSDT",))
-            if group == "futures_depth"
-            else MarketDataConfig(futures_mark_price_symbols=("BTCUSDT",))
+            MarketDataConfig(spot_book_ticker_symbols=("BTCUSDT",))
+            if group == "spot_book_ticker"
+            else (
+                MarketDataConfig(futures_depth_symbols=("BTCUSDT",))
+                if group == "futures_depth"
+                else MarketDataConfig(futures_mark_price_symbols=("BTCUSDT",))
+            )
         )
     )
 
@@ -117,10 +125,13 @@ def make_supervisor(
         config,
         group,
         freshness_validator=freshness or (
-            None if group == "futures_depth" else make_freshness_validator()
+            None
+            if group in ("futures_depth", "spot_book_ticker")
+            else make_freshness_validator()
         ),
         on_event=callback,
         on_depth_event=depth_callback,
+        on_connection_lost=connection_lost,
         connector=connector,
         reconnect_policy=policy,
         sleep=lambda _delay: asyncio.sleep(0),
@@ -148,6 +159,45 @@ async def test_fresh_trade_is_delivered_only_as_validated_event():
     assert isinstance(received[0].message, ValidatedInboundMessage)
     assert received[0].freshness.state is FreshnessState.FRESH
     assert received[0].message.payload["E"] == 1_000_000
+
+
+@pytest.mark.asyncio
+async def test_book_ticker_is_delivered_without_event_timestamp_or_clock():
+    received = []
+    supervisor = make_supervisor(
+        group="spot_book_ticker",
+        callback=received.append,
+    )
+    request = validate_public_market_data_websocket_url(
+        "wss://data-stream.binance.vision/stream?streams=btcusdt@bookTicker"
+    )
+    client = FakeWebSocket(request)
+    message = make_message(
+        stream="btcusdt@bookTicker",
+        event_type=None,
+        timestamp=None,
+        payload={
+            "u": 17,
+            "s": "BTCUSDT",
+            "b": "60000.10",
+            "B": "0.250",
+            "a": "60000.20",
+            "A": "0.400",
+        },
+    )
+
+    with patch(
+        "app.market_data.supervisor.validate_public_websocket_inbound_message",
+        return_value=message,
+    ):
+        await supervisor._dispatch("raw-wire-message", client, 10.0)
+
+    assert len(received) == 1
+    assert received[0].message.event_type is None
+    assert "E" not in received[0].message.payload
+    assert received[0].freshness is None
+    assert received[0].book_synchronized is False
+    assert received[0].received_at_monotonic == 10.0
 
 
 @pytest.mark.asyncio
@@ -287,9 +337,11 @@ async def test_run_reconnects_after_disconnect_and_stops_cleanly():
     clients = deque([first, second])
     urls = []
     delivered = []
+    lifecycle = []
 
     async def connector(url):
         urls.append(url)
+        lifecycle.append("connect")
         return clients.popleft()
 
     supervisor = MarketDataWebSocketSupervisor(
@@ -297,6 +349,7 @@ async def test_run_reconnects_after_disconnect_and_stops_cleanly():
         "spot",
         freshness_validator=make_freshness_validator(),
         connector=connector,
+        on_connection_lost=lambda: lifecycle.append("lost"),
         sleep=lambda _delay: asyncio.sleep(0),
         random_source=lambda: 0.5,
         monotonic=lambda: 10.0,
@@ -316,6 +369,7 @@ async def test_run_reconnects_after_disconnect_and_stops_cleanly():
 
     assert len(urls) == 2
     assert urls == [config.spot_websocket_url, config.spot_websocket_url]
+    assert lifecycle == ["connect", "lost", "connect"]
     assert first.closed is True
     assert len(delivered) == 1
     assert supervisor.stopped is True

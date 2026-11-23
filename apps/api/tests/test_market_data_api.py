@@ -8,6 +8,10 @@ import pytest
 
 from app.asgi import create_app
 from app.market_data.environment import market_data_config_from_environment
+from app.security.internal_service_auth import (
+    InternalServicePrincipal,
+    get_internal_service_principal,
+)
 
 
 def test_environment_configuration_is_explicit_and_fail_closed():
@@ -79,7 +83,12 @@ class FakeService:
 
 
 @asynccontextmanager
-async def client_for(app):
+async def client_for(app, *, authenticated=True):
+    if authenticated:
+        app.dependency_overrides[get_internal_service_principal] = (
+            lambda: InternalServicePrincipal("web-bff")
+        )
+
     async with app.router.lifespan_context(app):
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(
@@ -243,3 +252,27 @@ async def test_latest_endpoint_rejects_event_identity_mismatch():
             "/api/v1/market-data/latest/spot/BTCUSDT"
         )
     assert response.status_code == 503
+
+@pytest.mark.asyncio
+async def test_market_data_routes_reject_requests_without_internal_authentication(
+    monkeypatch,
+):
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("OIDC_INTERNAL_AUTH_MODE", "")
+    monkeypatch.delenv("OIDC_INTERNAL_SERVICE_SECRET", raising=False)
+
+    app = create_app(
+        service_factory=FakeService,
+        config_factory=lambda: market_data_config_from_environment({}),
+    )
+
+    async with client_for(app, authenticated=False) as client:
+        health = await client.get("/api/v1/market-data/health")
+        latest = await client.get(
+            "/api/v1/market-data/latest/spot/BTCUSDT"
+        )
+
+    assert health.status_code == 503
+    assert latest.status_code == 503
+    assert health.headers["Cache-Control"] == "no-store"
+    assert latest.headers["Cache-Control"] == "no-store"

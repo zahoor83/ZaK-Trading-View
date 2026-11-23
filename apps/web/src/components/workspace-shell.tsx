@@ -1,4 +1,7 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useWorkspaceUser } from "./session-context";
 
 export type WorkspaceSection =
   | "overview"
@@ -38,6 +41,7 @@ export default function WorkspaceShell({
   const activeItem = navigation.find(
     (item) => item.id === activeSection
   );
+  const user = useWorkspaceUser();
 
   return (
     <main className="app-shell">
@@ -96,13 +100,21 @@ export default function WorkspaceShell({
 
           <div className="topbar-actions">
             <span className="environment-label">PAPER ENVIRONMENT</span>
-            <button
-              className="profile-button"
-              type="button"
-              aria-label="User profile"
-            >
-              Z
-            </button>
+            <div className="profile-session">
+              <span className="profile-email" title={user.email}>
+                {user.email}
+              </span>
+              <form action="/api/auth/logout" method="post">
+                <button
+                  className="profile-button"
+                  type="submit"
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  ↗
+                </button>
+              </form>
+            </div>
           </div>
         </header>
 

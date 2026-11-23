@@ -260,5 +260,119 @@ class BinanceSpotRestTests(unittest.TestCase):
                     BinanceSpotRestClient(max_response_bytes=size)
 
 
+    @patch("app.market_data.binance_spot_rest.fetch_public_market_data")
+    def test_book_ticker_returns_validated_decimal_strings(self, fetch):
+        fetch.return_value = self.mock_response({
+            "symbol": "BTCUSDT",
+            "bidPrice": "99999.90",
+            "bidQty": "0.125",
+            "askPrice": "100000.00",
+            "askQty": "0.250",
+        })
+
+        result = self.client.get_book_ticker("BTCUSDT")
+
+        self.assertEqual(result, {
+            "symbol": "BTCUSDT",
+            "bidPrice": "99999.90",
+            "bidQty": "0.125",
+            "askPrice": "100000.00",
+            "askQty": "0.250",
+        })
+
+        url = fetch.call_args.args[0]
+        self.assertTrue(url.startswith(BASE_URL + "/api/v3/ticker/bookTicker?"))
+        query = parse_qs(urlsplit(url).query)
+        self.assertEqual(query["symbol"], ["BTCUSDT"])
+
+    @patch("app.market_data.binance_spot_rest.fetch_public_market_data")
+    def test_book_ticker_rejects_wrong_symbol(self, fetch):
+        fetch.return_value = self.mock_response({
+            "symbol": "ETHUSDT",
+            "bidPrice": "10",
+            "bidQty": "1",
+            "askPrice": "11",
+            "askQty": "1",
+        })
+
+        with self.assertRaises(MarketDataResponseError):
+            self.client.get_book_ticker("BTCUSDT")
+
+    @patch("app.market_data.binance_spot_rest.fetch_public_market_data")
+    def test_book_ticker_rejects_crossed_market(self, fetch):
+        fetch.return_value = self.mock_response({
+            "symbol": "BTCUSDT",
+            "bidPrice": "101",
+            "bidQty": "1",
+            "askPrice": "100",
+            "askQty": "1",
+        })
+
+        with self.assertRaises(MarketDataResponseError):
+            self.client.get_book_ticker("BTCUSDT")
+
+    @patch("app.market_data.binance_spot_rest.fetch_public_market_data")
+    def test_book_ticker_rejects_invalid_decimal_fields(self, fetch):
+        valid = {
+            "symbol": "BTCUSDT",
+            "bidPrice": "100",
+            "bidQty": "1",
+            "askPrice": "101",
+            "askQty": "1",
+        }
+
+        bad_values = (
+            True,
+            False,
+            100,
+            1.25,
+            "",
+            " ",
+            " 1",
+            "1 ",
+            "1e2",
+            "NaN",
+            "Infinity",
+            "-1",
+            "0",
+            ".1",
+            "1.",
+            "01",
+            "1" * 129,
+            "0." + "1" * 37,
+        )
+
+        for field in ("bidPrice", "bidQty", "askPrice", "askQty"):
+            for bad in bad_values:
+                payload = dict(valid)
+                payload[field] = bad
+                fetch.return_value = self.mock_response(payload)
+
+                with self.subTest(field=field, value=bad):
+                    with self.assertRaises(MarketDataResponseError):
+                        self.client.get_book_ticker("BTCUSDT")
+
+    @patch("app.market_data.binance_spot_rest.fetch_public_market_data")
+    def test_book_ticker_rejects_missing_fields_and_non_object(self, fetch):
+        fetch.return_value = self.mock_response([])
+        with self.assertRaises(MarketDataResponseError):
+            self.client.get_book_ticker("BTCUSDT")
+
+        fetch.return_value = self.mock_response({
+            "symbol": "BTCUSDT",
+            "bidPrice": "100",
+            "bidQty": "1",
+            "askPrice": "101",
+        })
+        with self.assertRaises(MarketDataResponseError):
+            self.client.get_book_ticker("BTCUSDT")
+
+    def test_book_ticker_rejects_invalid_requested_symbol(self):
+        for symbol in ("btcusdt", "", "BTC/USDT", "BTC USDT", None, 123):
+            with self.subTest(symbol=symbol):
+                with self.assertRaises(ValueError):
+                    self.client.get_book_ticker(symbol)
+
+
 if __name__ == "__main__":
     unittest.main()
