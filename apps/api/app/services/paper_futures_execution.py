@@ -35,6 +35,9 @@ from app.security.permissions import Permission
 from app.services.futures_depth_execution_adapter import (
     FuturesDepthExecutionAdapter,
 )
+from app.services.futures_depth_fill_engine import (
+    calculate_futures_depth_fill,
+)
 from app.services.paper_fee_policy import (
     PaperFeePolicy,
     PaperFeePolicyError,
@@ -530,6 +533,21 @@ async def execute_futures_trade_in_transaction(
         now_monotonic=quote_context.current_monotonic,
     )
 
+    try:
+        depth_fill = calculate_futures_depth_fill(
+            side=side,
+            quantity=quantity,
+            bids=quote_context.bids,
+            asks=quote_context.asks,
+            tick_size=quote_context.tick_size,
+        )
+    except (TypeError, ValueError) as exc:
+        raise FuturesTradeExecutionError(
+            "Futures order book cannot satisfy a complete depth fill."
+        ) from exc
+
+    execution_price = depth_fill.vwap
+
     position = position_decision.position
     action = position_decision.action
 
@@ -562,7 +580,7 @@ async def execute_futures_trade_in_transaction(
 
         calculation = calculate_futures_open(
             quantity=quantity,
-            price=validated_price.price,
+            price=execution_price,
             leverage=leverage,
             fee_rate=fee_policy.entry_fee_rate,
         )
@@ -582,7 +600,7 @@ async def execute_futures_trade_in_transaction(
                 leverage_snapshot=leverage,
                 initial_quantity=quantity,
                 remaining_quantity=quantity,
-                entry_price=validated_price.price,
+                entry_price=execution_price,
                 remaining_cost_basis=None,
                 margin_locked=calculation.remaining_margin,
                 entry_fee_original=calculation.fee_original,
@@ -636,7 +654,7 @@ async def execute_futures_trade_in_transaction(
                 context.prec = 120
                 weighted_entry_price = (
                     old_quantity * old_price
-                    + quantity * validated_price.price
+                    + quantity * execution_price
                 ) / new_quantity
 
             position.entry_price = _decimal(
@@ -696,7 +714,7 @@ async def execute_futures_trade_in_transaction(
             side=position.side,
             quantity=quantity,
             entry_price=position.entry_price,
-            exit_price=validated_price.price,
+            exit_price=execution_price,
             remaining_quantity=position.remaining_quantity,
             remaining_margin=position.margin_locked,
             leverage=existing_leverage,
@@ -753,6 +771,16 @@ async def execute_futures_trade_in_transaction(
         "entry_price": _decimal_text(position.entry_price),
         "leverage": _decimal_text(position.leverage_snapshot),
         "position_status": position.status,
+        "fill_method": "depth_vwap",
+        "fill_level_count": depth_fill.level_count,
+        "fill_levels": [
+            {
+                "price": _decimal_text(level.price),
+                "quantity": _decimal_text(level.quantity),
+                "notional": _decimal_text(level.notional),
+            }
+            for level in depth_fill.levels
+        ],
         "quote_source": validated_price.source,
         "quote_update_id": quote_context.last_update_id,
         "fee_config_snapshot": dict(position.fee_config_snapshot),

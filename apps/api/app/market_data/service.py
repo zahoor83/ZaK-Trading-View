@@ -166,6 +166,8 @@ class FuturesDepthExecutionContext:
     last_update_id: int
     bid: Decimal
     ask: Decimal
+    bids: tuple[tuple[Decimal, Decimal], ...]
+    asks: tuple[tuple[Decimal, Decimal], ...]
     event_time: datetime
     received_at: datetime
     metadata_received_at: datetime
@@ -856,41 +858,65 @@ class MarketDataService:
                     f"Futures order book has no executable depth: {configured_symbol}"
                 )
 
-            if (
-                tuple(sorted(book.bids, reverse=True)) != book.bids
-                or tuple(sorted(book.asks)) != book.asks
-            ):
-                raise RuntimeError(
-                    f"Futures order book levels are not correctly ordered: {configured_symbol}"
-                )
+            def validate_depth_levels(levels, *, name, descending):
+                if not isinstance(levels, tuple) or not levels:
+                    raise RuntimeError(
+                        f"Futures {name} depth is empty or malformed: {configured_symbol}"
+                    )
 
-            best_bid = book.bids[0]
-            best_ask = book.asks[0]
-            if (
-                not isinstance(best_bid, tuple)
-                or len(best_bid) != 2
-                or not isinstance(best_ask, tuple)
-                or len(best_ask) != 2
-            ):
-                raise RuntimeError("Futures best bid/ask structure is invalid.")
+                prices = []
+                seen = set()
 
-            bid, bid_quantity = best_bid
-            ask, ask_quantity = best_ask
-            if (
-                type(bid) is not Decimal
-                or type(ask) is not Decimal
-                or type(bid_quantity) is not Decimal
-                or type(ask_quantity) is not Decimal
-                or not bid.is_finite()
-                or not ask.is_finite()
-                or not bid_quantity.is_finite()
-                or not ask_quantity.is_finite()
-                or bid <= 0
-                or ask <= 0
-                or bid_quantity <= 0
-                or ask_quantity <= 0
-                or bid > ask
-            ):
+                for index, level in enumerate(levels):
+                    if type(level) is not tuple or len(level) != 2:
+                        raise RuntimeError(
+                            f"Futures {name} level structure is invalid: {configured_symbol}"
+                        )
+
+                    price, quantity = level
+                    if (
+                        type(price) is not Decimal
+                        or type(quantity) is not Decimal
+                        or not price.is_finite()
+                        or not quantity.is_finite()
+                        or price <= 0
+                        or quantity <= 0
+                    ):
+                        raise RuntimeError(
+                            f"Futures {name} level values are invalid: {configured_symbol}"
+                        )
+
+                    if price in seen:
+                        raise RuntimeError(
+                            f"Futures {name} depth contains duplicate prices: {configured_symbol}"
+                        )
+                    seen.add(price)
+                    prices.append(price)
+
+                    # Preserve the adapter's established best-price tick error.
+                    # The fill engine independently validates every consumed level.
+                    if index > 0:
+                        try:
+                            if price % tick_size != 0:
+                                raise RuntimeError(
+                                    f"Futures {name} price is not tick aligned: {configured_symbol}"
+                                )
+                        except (InvalidOperation, ArithmeticError) as exc:
+                            raise RuntimeError(
+                                f"Futures {name} tick validation failed: {configured_symbol}"
+                            ) from exc
+
+                if prices != sorted(prices, reverse=descending):
+                    raise RuntimeError(
+                        f"Futures {name} levels are not correctly ordered: {configured_symbol}"
+                    )
+
+            validate_depth_levels(book.bids, name="bid", descending=True)
+            validate_depth_levels(book.asks, name="ask", descending=False)
+
+            bid, bid_quantity = book.bids[0]
+            ask, ask_quantity = book.asks[0]
+            if bid > ask:
                 raise RuntimeError(
                     f"Futures best bid/ask is invalid: {configured_symbol}"
                 )
@@ -980,6 +1006,8 @@ class MarketDataService:
             last_update_id=book.last_update_id,
             bid=bid,
             ask=ask,
+            bids=book.bids,
+            asks=book.asks,
             event_time=event_time,
             received_at=received_at,
             metadata_received_at=metadata_received_at,

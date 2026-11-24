@@ -53,6 +53,7 @@ def _assert_futures_response_contract(response_data, *, expected_action):
         "remaining_quantity", "remaining_margin", "entry_price", "leverage",
         "position_status", "quote_source", "quote_update_id",
         "fee_config_snapshot", "symbol_metadata_snapshot",
+        "fill_method", "fill_levels", "fill_level_count",
     }
 
     assert isinstance(response_data, dict)
@@ -81,6 +82,29 @@ def _assert_futures_response_contract(response_data, *, expected_action):
     assert response_data["quote_source"] == "futures_depth_book"
     assert type(response_data["quote_update_id"]) is int
     assert response_data["quote_update_id"] > 0
+    assert response_data["fill_method"] == "depth_vwap"
+    assert type(response_data["fill_level_count"]) is int
+    assert response_data["fill_level_count"] >= 1
+    fill_levels = response_data["fill_levels"]
+    assert isinstance(fill_levels, list)
+    assert len(fill_levels) == response_data["fill_level_count"]
+    fill_quantity = Decimal("0")
+    fill_notional = Decimal("0")
+    for level in fill_levels:
+        assert isinstance(level, dict)
+        assert set(level) == {"price", "quantity", "notional"}
+        for field in ("price", "quantity", "notional"):
+            assert isinstance(level[field], str)
+            assert Decimal(level[field]).is_finite()
+            assert Decimal(level[field]) > 0
+        assert (
+            Decimal(level["price"]) * Decimal(level["quantity"])
+            == Decimal(level["notional"])
+        )
+        fill_quantity += Decimal(level["quantity"])
+        fill_notional += Decimal(level["notional"])
+    assert fill_quantity == Decimal(response_data["quantity"])
+    assert fill_notional == Decimal(response_data["gross_value"])
 
     expected_transaction_type = (
         "futures_open"

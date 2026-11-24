@@ -1,4 +1,5 @@
-﻿from datetime import datetime, timezone
+from dataclasses import replace
+from datetime import datetime, timezone
 from decimal import Decimal
 from types import MappingProxyType, SimpleNamespace
 import inspect
@@ -275,3 +276,79 @@ def test_execution_path_does_not_call_health_snapshot(monkeypatch):
     monkeypatch.setattr(service, "health_snapshot", forbidden)
     result = adapter(service).validate("BTCUSDT", side="buy")
     assert result.price == Decimal("100.01")
+
+
+def test_context_exposes_complete_immutable_depth():
+    _, context = adapter(make_service()).validate_with_context(
+        "BTCUSDT", side="buy"
+    )
+    assert context.bids == ((Decimal("100.00"), Decimal("2.0")),)
+    assert context.asks == ((Decimal("100.01"), Decimal("3.0")),)
+    assert isinstance(context.bids, tuple)
+    assert isinstance(context.asks, tuple)
+
+
+def test_deeper_off_tick_price_fails_closed():
+    service = make_service()
+    sync = service._futures_order_books["BTCUSDT"]
+    sync._book = replace(sync._book, asks=(
+        (Decimal("100.01"), Decimal("3")),
+        (Decimal("100.025"), Decimal("1")),
+    ))
+    with pytest.raises(RuntimeError, match="tick aligned"):
+        adapter(service).validate("BTCUSDT", side="buy")
+
+
+def test_deeper_zero_quantity_fails_closed():
+    service = make_service()
+    sync = service._futures_order_books["BTCUSDT"]
+    sync._book = replace(sync._book, asks=(
+        (Decimal("100.01"), Decimal("3")),
+        (Decimal("100.02"), Decimal("0")),
+    ))
+    with pytest.raises(RuntimeError, match="level values"):
+        adapter(service).validate("BTCUSDT", side="buy")
+
+
+def test_deeper_non_decimal_price_fails_closed():
+    service = make_service()
+    sync = service._futures_order_books["BTCUSDT"]
+    sync._book = replace(sync._book, asks=(
+        (Decimal("100.01"), Decimal("3")),
+        ("100.02", Decimal("1")),
+    ))
+    with pytest.raises(RuntimeError, match="level values"):
+        adapter(service).validate("BTCUSDT", side="buy")
+
+
+def test_deeper_duplicate_price_fails_closed():
+    service = make_service()
+    sync = service._futures_order_books["BTCUSDT"]
+    sync._book = replace(sync._book, asks=(
+        (Decimal("100.01"), Decimal("3")),
+        (Decimal("100.01"), Decimal("1")),
+    ))
+    with pytest.raises(RuntimeError, match="duplicate"):
+        adapter(service).validate("BTCUSDT", side="buy")
+
+
+def test_deeper_malformed_level_fails_closed():
+    service = make_service()
+    sync = service._futures_order_books["BTCUSDT"]
+    sync._book = replace(sync._book, asks=(
+        (Decimal("100.01"), Decimal("3")),
+        (Decimal("100.02"),),
+    ))
+    with pytest.raises(RuntimeError, match="structure"):
+        adapter(service).validate("BTCUSDT", side="buy")
+
+
+def test_deeper_unsorted_level_fails_closed():
+    service = make_service()
+    sync = service._futures_order_books["BTCUSDT"]
+    sync._book = replace(sync._book, asks=(
+        (Decimal("100.02"), Decimal("1")),
+        (Decimal("100.01"), Decimal("3")),
+    ))
+    with pytest.raises(RuntimeError, match="correctly ordered"):
+        adapter(service).validate("BTCUSDT", side="buy")

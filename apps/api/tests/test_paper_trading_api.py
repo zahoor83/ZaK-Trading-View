@@ -331,6 +331,11 @@ def _futures_api_response_data():
         "position_status": "open",
         "quote_source": "futures_depth_book",
         "quote_update_id": 12345,
+        "fill_method": "depth_vwap",
+        "fill_levels": [
+            {"price": "1000", "quantity": "0.01", "notional": "10"}
+        ],
+        "fill_level_count": 1,
         "fee_config_snapshot": {
             "schema_version": 1,
             "policy_id": "futures-policy-v1",
@@ -598,6 +603,58 @@ def test_futures_response_model_rejects_invalid_service_contract_values(
         paper_trading.FuturesPaperTradeResponse.model_validate(response_data)
 
 
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("price", 1000),
+        ("price", "NaN"),
+        ("quantity", "0"),
+        ("quantity", "Infinity"),
+        ("notional", "-1"),
+    ],
+)
+def test_futures_response_model_rejects_invalid_fill_level_values(
+    field,
+    invalid_value,
+):
+    response_data = {
+        **_futures_api_response_data(),
+        "replayed": False,
+    }
+    response_data["fill_levels"][0][field] = invalid_value
+
+    with pytest.raises(ValidationError):
+        paper_trading.FuturesPaperTradeResponse.model_validate(response_data)
+
+
+@pytest.mark.parametrize(
+    ("field", "invalid_value"),
+    [
+        ("fill_level_count", 2),
+        ("fill_levels", []),
+        ("fill_method", "best_price"),
+        (
+            "fill_levels",
+            [{"price": "1000", "quantity": "0.02", "notional": "20"}],
+        ),
+        (
+            "fill_levels",
+            [{"price": "1000", "quantity": "0.01", "notional": "11"}],
+        ),
+    ],
+)
+def test_futures_response_model_rejects_inconsistent_fill_contract(
+    field,
+    invalid_value,
+):
+    response_data = {
+        **_futures_api_response_data(),
+        "replayed": False,
+    }
+    response_data[field] = invalid_value
+
+    with pytest.raises(ValidationError):
+        paper_trading.FuturesPaperTradeResponse.model_validate(response_data)
 def test_futures_response_model_accepts_verified_open_and_close_envelopes():
     for transaction_type in ("futures_open", "futures_close"):
         response_data = {

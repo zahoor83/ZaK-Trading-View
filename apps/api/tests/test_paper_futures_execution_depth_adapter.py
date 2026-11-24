@@ -37,6 +37,8 @@ def make_context(
         last_update_id=12345,
         bid=Decimal("99999.00"),
         ask=Decimal("100000.00"),
+        bids=((Decimal("99999.00"), Decimal("2")),),
+        asks=((Decimal("100000.00"), Decimal("3")),),
         event_time=event_time,
         received_at=received,
         metadata_received_at=now - timedelta(milliseconds=200),

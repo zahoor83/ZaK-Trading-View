@@ -280,3 +280,75 @@ async def test_disconnect_cancels_inflight_snapshot_without_republishing_book():
         assert service._pipeline_errors["futures_depth"] == "WebSocketConnectionLost"
     finally:
         provider_release.set()
+
+@pytest.mark.asyncio
+async def test_futures_depth_reconnect_resynchronizes_with_fresh_snapshot():
+    calls = []
+
+    def snapshot_provider(symbol):
+        calls.append(symbol)
+        last_update_id = 100 if len(calls) == 1 else 102
+
+        return {
+            "lastUpdateId": last_update_id,
+            "E": 1800000000000,
+            "T": 1800000000000,
+            "bids": [["99", "2"]],
+            "asks": [["101", "3"]],
+        }
+
+    service = MarketDataService(
+        MarketDataConfig(futures_depth_symbols=("BTCUSDT",)),
+    )
+    service._resources["usdm_futures"] = SimpleNamespace(
+        depth_snapshot_provider=snapshot_provider,
+        clock=SimpleNamespace(is_synchronized=True),
+    )
+
+    accepted = await service._record_supervised_event(
+        "futures_depth",
+        make_depth_event(),
+    )
+    assert accepted is True
+
+    first_task = service._futures_snapshot_tasks["BTCUSDT"]
+    await first_task
+
+    synchronizer = service._futures_order_books["BTCUSDT"]
+    first_book = synchronizer.book
+
+    assert first_book is not None
+    assert first_book.last_update_id == 101
+    assert first_book.book_synchronized is True
+
+    await service._make_connection_lost_callback("futures_depth")()
+
+    assert synchronizer.book is None
+    assert synchronizer.reason == "WebSocketConnectionLost"
+    assert service._pipeline_states["futures_depth"] is PipelineState.UNSYNCED
+
+    second_event = make_depth_event()
+    second_event.message.payload.update({
+        "U": 102,
+        "u": 103,
+        "pu": 101,
+        "b": [["99", "4"]],
+    })
+
+    accepted = await service._record_supervised_event(
+        "futures_depth",
+        second_event,
+    )
+    assert accepted is True
+
+    second_task = service._futures_snapshot_tasks["BTCUSDT"]
+    await second_task
+
+    book = synchronizer.book
+
+    assert calls == ["BTCUSDT", "BTCUSDT"]
+    assert book is not None
+    assert book.last_update_id == 103
+    assert book.book_synchronized is True
+    assert book.sequence_contiguous is True
+    assert service._pipeline_states["futures_depth"] is PipelineState.SUBSCRIBING

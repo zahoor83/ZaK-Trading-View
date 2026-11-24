@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, localcontext
 from typing import Any, Literal
 from uuid import UUID
 
@@ -151,6 +151,25 @@ class FuturesPaperSymbolMetadataSnapshot(BaseModel):
     tick_size: str
 
 
+class FuturesPaperFillLevel(BaseModel):
+    """One consumed order-book level in a Futures paper fill."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    price: str = Field(strict=True, min_length=1)
+    quantity: str = Field(strict=True, min_length=1)
+    notional: str = Field(strict=True, min_length=1)
+
+    @field_validator("price", "quantity", "notional")
+    @classmethod
+    def validate_positive_finite_decimal(cls, value: str) -> str:
+        try:
+            parsed = Decimal(value)
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError("Fill values must be valid Decimal strings.") from exc
+        if not parsed.is_finite() or parsed <= 0:
+            raise ValueError("Fill values must be positive and finite.")
+        return value
 class FuturesPaperTradeResponse(BaseModel):
     """Typed API representation of the persisted Futures execution envelope."""
 
@@ -184,11 +203,50 @@ class FuturesPaperTradeResponse(BaseModel):
     position_status: Literal["open", "closed"]
     quote_source: Literal["futures_depth_book"]
     quote_update_id: int = Field(gt=0)
+    fill_method: Literal["depth_vwap"]
+    fill_levels: list[FuturesPaperFillLevel] = Field(min_length=1)
+    fill_level_count: int = Field(ge=1)
     fee_config_snapshot: FuturesPaperFeeConfigSnapshot
     symbol_metadata_snapshot: FuturesPaperSymbolMetadataSnapshot
     replayed: bool
 
 
+    @model_validator(mode="after")
+    def validate_fill_breakdown(self):
+        if self.fill_level_count != len(self.fill_levels):
+            raise ValueError("fill_level_count must match fill_levels length.")
+        try:
+            with localcontext() as ctx:
+                ctx.prec = 120
+                total_quantity = sum(
+                    (Decimal(level.quantity) for level in self.fill_levels),
+                    Decimal("0"),
+                )
+                total_notional = sum(
+                    (Decimal(level.notional) for level in self.fill_levels),
+                    Decimal("0"),
+                )
+                if total_quantity != Decimal(self.quantity):
+                    raise ValueError(
+                        "Fill-level quantity total must match response quantity."
+                    )
+                if total_notional != Decimal(self.gross_value):
+                    raise ValueError(
+                        "Fill-level notional total must match gross_value."
+                    )
+                for level in self.fill_levels:
+                    if (
+                        Decimal(level.price) * Decimal(level.quantity)
+                        != Decimal(level.notional)
+                    ):
+                        raise ValueError(
+                            "Fill-level notional must equal price multiplied by quantity."
+                        )
+        except (InvalidOperation, TypeError) as exc:
+            raise ValueError(
+                "Execution totals must be valid Decimal strings."
+            ) from exc
+        return self
 class SpotPaperFeeConfigSnapshot(BaseModel):
     """Immutable fee-policy snapshot persisted with a Spot position."""
     model_config = ConfigDict(extra="forbid", frozen=True)
