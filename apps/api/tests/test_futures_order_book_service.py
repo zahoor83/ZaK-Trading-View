@@ -352,3 +352,95 @@ async def test_futures_depth_reconnect_resynchronizes_with_fresh_snapshot():
     assert book.book_synchronized is True
     assert book.sequence_contiguous is True
     assert service._pipeline_states["futures_depth"] is PipelineState.SUBSCRIBING
+
+
+@pytest.mark.asyncio
+async def test_reconnect_event_schedules_snapshot_while_previous_task_cancels():
+    import asyncio
+    import threading
+
+    provider_started = threading.Event()
+    provider_release = threading.Event()
+    calls = []
+
+    def snapshot_provider(symbol):
+        calls.append(symbol)
+        invocation = len(calls)
+        provider_started.set()
+        provider_release.wait(timeout=5)
+        return {
+            "lastUpdateId": 100 if invocation == 1 else 102,
+            "E": 1800000000000,
+            "T": 1800000000000,
+            "bids": [["99", "2"]],
+            "asks": [["101", "3"]],
+        }
+
+    service = MarketDataService(
+        MarketDataConfig(futures_depth_symbols=("BTCUSDT",)),
+    )
+    service._resources["usdm_futures"] = SimpleNamespace(
+        depth_snapshot_provider=snapshot_provider,
+        clock=SimpleNamespace(is_synchronized=True),
+    )
+
+    old_task = None
+    new_task = None
+
+    try:
+        await service._record_supervised_event(
+            "futures_depth",
+            make_depth_event(),
+        )
+        old_task = service._futures_snapshot_tasks["BTCUSDT"]
+
+        started = await asyncio.to_thread(provider_started.wait, 2)
+        assert started is True
+
+        await service._make_connection_lost_callback("futures_depth")()
+
+        reconnect_event = make_depth_event()
+        reconnect_event.message.payload.update({
+            "U": 102,
+            "u": 103,
+            "pu": 101,
+            "b": [["99", "4"]],
+        })
+
+        accepted = await service._record_supervised_event(
+            "futures_depth",
+            reconnect_event,
+        )
+        assert accepted is True
+
+        with pytest.raises(asyncio.CancelledError):
+            await old_task
+
+        await asyncio.sleep(0)
+
+        new_task = service._futures_snapshot_tasks.get("BTCUSDT")
+        assert new_task is not None, (
+            "Reconnect event did not schedule a replacement snapshot after cancellation."
+        )
+        assert new_task is not old_task
+
+        provider_release.set()
+        await new_task
+
+        book = service._futures_order_books["BTCUSDT"].book
+        assert calls == ["BTCUSDT", "BTCUSDT"]
+        assert book is not None
+        assert book.last_update_id == 103
+        assert book.book_synchronized is True
+        assert book.sequence_contiguous is True
+
+    finally:
+        provider_release.set()
+
+        if old_task is not None and not old_task.done():
+            old_task.cancel()
+            await asyncio.gather(old_task, return_exceptions=True)
+
+        if new_task is not None and not new_task.done():
+            new_task.cancel()
+            await asyncio.gather(new_task, return_exceptions=True)

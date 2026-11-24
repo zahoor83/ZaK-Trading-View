@@ -1788,6 +1788,16 @@ class MarketDataService:
 
         existing = self._futures_snapshot_tasks.get(symbol)
         if existing is not None and not existing.done():
+            if existing.cancelling():
+                def retry_after_cancellation(_completed_task) -> None:
+                    if self._service_state in (
+                        MarketDataServiceState.STOPPING,
+                        MarketDataServiceState.STOPPED,
+                    ):
+                        return
+                    self._schedule_futures_depth_snapshot(symbol)
+
+                existing.add_done_callback(retry_after_cancellation)
             return
 
         task = asyncio.create_task(
